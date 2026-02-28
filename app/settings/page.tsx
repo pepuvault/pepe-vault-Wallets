@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
   getWallets,
-  getWalletState,
   updateActivity,
   lockWallet,
   getPrivateKey,
@@ -19,126 +18,225 @@ import {
 } from "@/lib/wallet"
 import { deleteAllCookies } from "@/lib/cookies"
 import { CURRENCIES, getSavedCurrency, saveCurrency, getDefaultCurrency, type Currency } from "@/lib/currencies"
-import { Settings, Lock, Eye, EyeOff, Copy, Check, Trash2, Key, DollarSign } from "lucide-react"
+import {
+  Lock,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  Trash2,
+  ChevronRight,
+  Shield,
+  Globe,
+  Clock,
+  Key,
+  AlertTriangle,
+  X,
+  RefreshCw,
+  Wallet,
+} from "lucide-react"
 import BottomNav from "@/components/BottomNav"
+import Link from "next/link"
 
+/* ─────────── tiny reusable components ─────────── */
+
+function SettingSection({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="overflow-hidden"
+      style={{
+        background: "#1a1d2e",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 20,
+        marginBottom: 12,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function SettingRow({
+  icon,
+  iconColor = "#00ff88",
+  iconBg = "rgba(0,255,136,0.12)",
+  label,
+  sublabel,
+  right,
+  onClick,
+  danger,
+}: {
+  icon: React.ReactNode
+  iconColor?: string
+  iconBg?: string
+  label: string
+  sublabel?: string
+  right?: React.ReactNode
+  onClick?: () => void
+  danger?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-4 px-5 py-4 transition-colors text-left"
+      style={{
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        cursor: onClick ? "pointer" : "default",
+      }}
+      disabled={!onClick}
+    >
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: danger ? "rgba(239,68,68,0.12)" : iconBg }}
+      >
+        <span style={{ color: danger ? "#ef4444" : iconColor }}>{icon}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-sm font-semibold"
+          style={{ color: danger ? "#ef4444" : "#fff" }}
+        >
+          {label}
+        </p>
+        {sublabel && (
+          <p className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
+            {sublabel}
+          </p>
+        )}
+      </div>
+      {right ?? (onClick && <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: "#4b5563" }} />)}
+    </button>
+  )
+}
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <p
+      className="text-xs font-semibold uppercase tracking-widest px-5 pt-6 pb-2"
+      style={{ color: "#4b5563" }}
+    >
+      {label}
+    </p>
+  )
+}
+
+/* ─────────── Modal shell ─────────── */
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[999] flex items-end justify-center"
+      style={{ background: "rgba(0,0,0,0.65)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-t-3xl p-6 space-y-5 max-h-[88vh] overflow-y-auto animate-slide-up"
+        style={{ background: "#181b29", border: "1px solid rgba(255,255,255,0.1)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold">{title}</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+            style={{ background: "rgba(255,255,255,0.08)" }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/* ─────────── Main page ─────────── */
 export default function SettingsPage() {
   const router = useRouter()
   const [wallets, setWallets] = useState<any[]>([])
-  const [showPrivateKey, setShowPrivateKey] = useState(false)
-  const [showMnemonic, setShowMnemonic] = useState(false)
-  const [password, setPassword] = useState("")
   const [copied, setCopied] = useState("")
   const [error, setError] = useState("")
-  const [showChangePasscode, setShowChangePasscode] = useState(false)
+  const [autoLockSeconds, setAutoLockSecondsState] = useState<number>(60)
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>(getDefaultCurrency())
+
+  /* modal states */
+  const [modal, setModal] = useState<
+    null | "passcode" | "privateKey" | "seedPhrase" | "autoLock" | "currency" | "deleteWallet"
+  >(null)
+
+  /* passcode change */
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [changePasscodeLoading, setChangePasscodeLoading] = useState(false)
   const [changePasscodeSuccess, setChangePasscodeSuccess] = useState("")
-  const [autoLockSeconds, setAutoLockSecondsState] = useState<number>(60)
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency>(getDefaultCurrency())
+
+  /* secret reveal */
+  const [revealPassword, setRevealPassword] = useState("")
+  const [privateKey, setPrivateKey] = useState<string | null>(null)
+  const [mnemonic, setMnemonic] = useState<string | null>(null)
+  const [loadingSecret, setLoadingSecret] = useState(false)
+  const [showSecret, setShowSecret] = useState(false)
 
   useEffect(() => {
-    // Check if wallet exists
-    const wallets = getWallets()
-    if (wallets.length === 0) {
-      router.push("/setup")
-      return
-    }
-
-    // No password required for viewing settings
+    const w = getWallets()
+    if (w.length === 0) { router.push("/setup"); return }
     updateActivity()
-    setWallets(wallets)
-
-    // Load auto-lock setting
+    setWallets(w)
     if (typeof window !== "undefined") {
       setAutoLockSecondsState(getAutoLockSeconds())
       setSelectedCurrency(getSavedCurrency())
     }
   }, [router])
 
-  const handleCopy = (text: string, field: string) => {
+  const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text)
-    setCopied(field)
+    setCopied(key)
     setTimeout(() => setCopied(""), 2000)
   }
 
-  const handleLock = () => {
-    lockWallet()
-    router.push("/unlock")
-  }
-
-  const handleAutoLockChange = (value: string) => {
-    const seconds = Number.parseInt(value, 10)
-    if (Number.isNaN(seconds)) return
-    setAutoLockSecondsState(seconds)
-    setAutoLockSeconds(seconds)
-  }
-
-  const handleReset = () => {
-    // Use the proper clearAllWallets function instead of localStorage.clear()
-    // This ensures we only clear wallet-related data, not everything
-    if (confirm("Are you sure? This will delete all wallets, localStorage, and cookies. Make sure you have saved your seed phrases.")) {
-      // Clear all wallet data using the proper function
-      clearAllWallets()
-      
-      // Delete all cookies (including unchained_user_id)
-      deleteAllCookies()
-      
-      router.push("/setup")
-    }
+  const closeModal = () => {
+    setModal(null)
+    setError("")
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmPassword("")
+    setRevealPassword("")
+    setPrivateKey(null)
+    setMnemonic(null)
+    setShowSecret(false)
+    setChangePasscodeSuccess("")
   }
 
   const handleChangePasscode = async () => {
     setError("")
-    setChangePasscodeSuccess("")
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setError("Please fill all fields")
-      return
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError("New passwords don't match")
-      return
-    }
-
-    if (newPassword.length !== 4) {
-      setError("Password must be exactly 4 digits")
-      return
-    }
-
+    if (!currentPassword || !newPassword || !confirmPassword) { setError("Please fill all fields"); return }
+    if (newPassword !== confirmPassword) { setError("New passwords don't match"); return }
+    if (newPassword.length !== 4) { setError("Password must be exactly 4 digits"); return }
     setChangePasscodeLoading(true)
     try {
       const currentWallets = getWallets()
-      if (currentWallets.length === 0) throw new Error("No wallet found")
-
-      // Verify current password by trying to decrypt the active wallet
+      if (!currentWallets.length) throw new Error("No wallet found")
       const active = getCurrentWallet() || currentWallets[0]
-      try {
-        decryptData(active.encryptedPrivateKey, currentPassword)
-      } catch {
-        throw new Error("Current password is incorrect")
-      }
-
-      // Re-encrypt all wallets with new password
-      const updatedWallets = currentWallets.map((wallet) => ({
-        ...wallet,
-        encryptedPrivateKey: encryptData(decryptData(wallet.encryptedPrivateKey, currentPassword), newPassword),
-        encryptedMnemonic: wallet.encryptedMnemonic
-          ? encryptData(decryptData(wallet.encryptedMnemonic, currentPassword), newPassword)
+      try { decryptData(active.encryptedPrivateKey, currentPassword) } catch { throw new Error("Current password is incorrect") }
+      const updated = currentWallets.map((w) => ({
+        ...w,
+        encryptedPrivateKey: encryptData(decryptData(w.encryptedPrivateKey, currentPassword), newPassword),
+        encryptedMnemonic: w.encryptedMnemonic
+          ? encryptData(decryptData(w.encryptedMnemonic, currentPassword), newPassword)
           : undefined,
       }))
-
-      localStorage.setItem("unchained_wallets", JSON.stringify(updatedWallets))
-      setChangePasscodeSuccess("Passcode changed successfully!")
-      setCurrentPassword("")
-      setNewPassword("")
-      setConfirmPassword("")
-      setShowChangePasscode(false)
-
-      setTimeout(() => setChangePasscodeSuccess(""), 3000)
+      localStorage.setItem("unchained_wallets", JSON.stringify(updated))
+      setChangePasscodeSuccess("Passcode updated successfully!")
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("")
+      setTimeout(() => { setChangePasscodeSuccess(""); closeModal() }, 2000)
     } catch (err: any) {
       setError(err.message || "Failed to change passcode")
     } finally {
@@ -146,460 +244,445 @@ export default function SettingsPage() {
     }
   }
 
-  const [privateKey, setPrivateKey] = useState<string | null>(null)
-  const [mnemonic, setMnemonic] = useState<string | null>(null)
-  const [loadingPrivateKey, setLoadingPrivateKey] = useState(false)
-  const [loadingMnemonic, setLoadingMnemonic] = useState(false)
-
-  const loadPrivateKey = () => {
-    if (!password || wallets.length === 0) {
-      setPrivateKey(null)
-      return
-    }
-    
-    setLoadingPrivateKey(true)
+  const revealSecret = async (type: "privateKey" | "seedPhrase") => {
+    if (!revealPassword) { setError("Enter your PIN first"); return }
+    setLoadingSecret(true)
     setError("")
-    
     try {
       const active = getCurrentWallet() || wallets[0]
-      if (!active) {
-        setPrivateKey(null)
-        setLoadingPrivateKey(false)
-        return
+      if (type === "privateKey") {
+        const key = getPrivateKey(active, revealPassword)
+        setPrivateKey(key)
+      } else {
+        const m = getMnemonic(active, revealPassword)
+        setMnemonic(m || "No seed phrase available")
       }
-      
-      const decryptedKey = getPrivateKey(active, password)
-      setPrivateKey(decryptedKey)
+      setShowSecret(true)
     } catch (err: any) {
-      console.error("Error loading private key:", err)
-      setError(err.message || "Invalid password. Please try again.")
-      setPrivateKey(null)
+      setError(err.message || "Invalid PIN")
     } finally {
-      setLoadingPrivateKey(false)
+      setLoadingSecret(false)
     }
   }
 
-  const loadMnemonic = () => {
-    if (!password || wallets.length === 0) {
-      setMnemonic(null)
-      return
-    }
-    
-    setLoadingMnemonic(true)
-    setError("")
-    
-    try {
-      const active = getCurrentWallet() || wallets[0]
-      if (!active) {
-        setMnemonic(null)
-        setLoadingMnemonic(false)
-        return
-      }
-      
-      const decryptedMnemonic = getMnemonic(active, password)
-      setMnemonic(decryptedMnemonic || "No mnemonic available")
-    } catch (err: any) {
-      console.error("Error loading mnemonic:", err)
-      setError(err.message || "Invalid password. Please try again.")
-      setMnemonic(null)
-    } finally {
-      setLoadingMnemonic(false)
-    }
-  }
-
-  // Load private key when showPrivateKey becomes true and password is set
-  useEffect(() => {
-    if (showPrivateKey && password && wallets.length > 0) {
-      loadPrivateKey()
-    } else if (!showPrivateKey) {
-      setPrivateKey(null)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showPrivateKey, password])
-
-  // Load mnemonic when showMnemonic becomes true and password is set
-  useEffect(() => {
-    if (showMnemonic && password && wallets.length > 0) {
-      loadMnemonic()
-    } else if (!showMnemonic) {
-      setMnemonic(null)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showMnemonic, password])
-
-  const handleDeleteActiveWallet = () => {
-    if (wallets.length <= 1) {
-      setError("You cannot delete your primary wallet")
-      return
-    }
-    const active = getCurrentWallet() || wallets[0]
-    if (wallets[0].id === active.id) {
-      setError("You cannot delete your primary wallet")
-      return
-    }
-    try {
-      deleteWallet(active.id)
-      const updated = getWallets()
-      setWallets(updated)
-      setError("")
-    } catch (err: any) {
-      setError(err.message || "Failed to delete PEPU VAULT WALLET")
-    }
-  }
+  const activeWallet = getCurrentWallet() || wallets[0]
+  const autoLockLabel =
+    autoLockSeconds === 0 ? "Never" : autoLockSeconds < 60 ? `${autoLockSeconds}s` : `${autoLockSeconds / 60}m`
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="glass-card rounded-none p-6 border-b border-white/10 sticky top-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-              <Settings className="w-5 h-5 text-green-500" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Settings</h1>
-              <p className="text-sm text-gray-400">Manage your wallet</p>
-            </div>
-          </div>
+    <div className="min-h-screen pb-28 text-white" style={{ background: "#13141a" }}>
+
+      {/* ── Top bar ── */}
+      <div
+        className="sticky top-0 z-40 px-5 py-4 flex items-center gap-3"
+        style={{ background: "rgba(19,20,26,0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(0,255,136,0.12)" }}
+        >
+          <Shield className="w-5 h-5" style={{ color: "#00ff88" }} />
         </div>
-
-        {/* Content */}
-        <div className="p-4 md:p-8 space-y-6">
-          {/* Wallet Info */}
-          {wallets.length > 0 && (
-            <div className="glass-card p-6">
-              <h2 className="text-lg font-bold mb-4">Active PEPU VAULT WALLET</h2>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-400 mb-2">Address</p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-sm font-mono text-green-400 break-all bg-black/50 p-2 rounded flex-1">
-                      {(getCurrentWallet() || wallets[0]).address}
-                    </code>
-                    <button
-                      onClick={() => handleCopy((getCurrentWallet() || wallets[0]).address, "address")}
-                      className="p-2 hover:bg-white/10 rounded transition-colors"
-                    >
-                      {copied === "address" ? (
-                        <Check className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-gray-400" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-400 mb-2">PEPU VAULT WALLET Name</p>
-                  <p className="font-semibold">{(getCurrentWallet() || wallets[0]).name || "My PEPU VAULT WALLET"}</p>
-                </div>
-
-                {wallets.length > 1 && (
-                  <button
-                    onClick={handleDeleteActiveWallet}
-                    className="mt-4 w-full px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-sm font-semibold transition-all"
-                  >
-                    Delete This Wallet (keeps primary wallet)
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="glass-card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-green-500" />
-                <h2 className="text-lg font-bold">Security</h2>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Auto-Lock Timer (seconds)</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={autoLockSeconds}
-                  onChange={(e) => handleAutoLockChange(e.target.value)}
-                  className="input-field"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Set how long of inactivity before the wallet auto-locks. Use 0 to disable auto-lock.
-                </p>
-              </div>
-
-            {!showChangePasscode ? (
-              <button
-                onClick={() => setShowChangePasscode(true)}
-                className="w-full px-4 py-3 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 font-semibold transition-all"
-              >
-                Change Passcode
-              </button>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Current Passcode</label>
-                  <input
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => {
-                      setCurrentPassword(e.target.value)
-                      setError("")
-                    }}
-                    placeholder="Enter current passcode"
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">New Passcode</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => {
-                      setNewPassword(e.target.value)
-                      setError("")
-                    }}
-                    placeholder="Enter new passcode"
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Confirm New Passcode</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => {
-                      setConfirmPassword(e.target.value)
-                      setError("")
-                    }}
-                    placeholder="Confirm new passcode"
-                    className="input-field"
-                  />
-                </div>
-
-                {error && (
-                  <div className="glass-card p-3 border border-red-500/50 bg-red-500/10">
-                    <p className="text-red-400 text-sm">{error}</p>
-                  </div>
-                )}
-
-                {changePasscodeSuccess && (
-                  <div className="glass-card p-3 border border-green-500/50 bg-green-500/10">
-                    <p className="text-green-400 text-sm">{changePasscodeSuccess}</p>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleChangePasscode}
-                    disabled={changePasscodeLoading}
-                    className="flex-1 px-4 py-3 rounded-lg bg-green-500 text-black hover:bg-green-600 font-semibold transition-all disabled:opacity-50"
-                  >
-                    {changePasscodeLoading ? "Updating..." : "Update Passcode"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowChangePasscode(false)
-                      setCurrentPassword("")
-                      setNewPassword("")
-                      setConfirmPassword("")
-                      setError("")
-                    }}
-                    className="flex-1 px-4 py-3 rounded-lg bg-white/10 text-gray-400 hover:bg-white/20 font-semibold transition-all"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-            </div>
-          </div>
-
-          {/* Currency Settings */}
-          <div className="glass-card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-500" />
-                <h2 className="text-lg font-bold">Display Currency</h2>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Select Currency</label>
-                <select
-                  value={selectedCurrency.code}
-                  onChange={(e) => {
-                    const currency = CURRENCIES.find((c) => c.code === e.target.value) || getDefaultCurrency()
-                    setSelectedCurrency(currency)
-                    saveCurrency(currency)
-                    // Reload page to update all balances
-                    window.location.reload()
-                  }}
-                  className="fancy-select"
-                >
-                  {CURRENCIES.map((currency) => (
-                    <option 
-                      key={currency.code} 
-                      value={currency.code}
-                    >
-                      {currency.symbol} {currency.name} ({currency.code.toUpperCase()})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Your portfolio balance will be displayed in the selected currency.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Recovery Section */}
-          <div className="glass-card p-6">
-            <h2 className="text-lg font-bold mb-4">Recovery Keys</h2>
-            <p className="text-sm text-gray-400 mb-4">
-              Enter your password to view your private key and seed phrase. Store these safely!
-            </p>
-
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setError("")
-                }}
-                placeholder="Enter your password"
-                className="input-field"
-              />
-            </div>
-
-            {error && !showChangePasscode && (
-              <div className="mb-4 glass-card p-3 border border-red-500/50 bg-red-500/10">
-                <p className="text-red-400 text-sm">{error}</p>
-              </div>
-            )}
-
-            {/* Private Key */}
-            <div className="mb-4">
-              <button
-                onClick={() => {
-                  setShowPrivateKey(!showPrivateKey)
-                  if (!showPrivateKey && !password) {
-                    setError("Please enter your password first")
-                  }
-                }}
-                className="flex items-center gap-2 text-green-400 hover:text-green-300 mb-2"
-              >
-                {showPrivateKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                {showPrivateKey ? "Hide" : "Show"} Private Key
-              </button>
-              {showPrivateKey && (
-                <>
-                  {loadingPrivateKey ? (
-                    <div className="flex items-center gap-2 text-gray-400 text-sm py-2">
-                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      Loading private key...
-                    </div>
-                  ) : privateKey ? (
-                    <div className="flex items-center gap-2">
-                      <code className="text-xs font-mono text-yellow-400 break-all bg-black/50 p-2 rounded flex-1">
-                        {privateKey}
-                      </code>
-                      <button
-                        onClick={() => handleCopy(privateKey, "key")}
-                        className="p-2 hover:bg-white/10 rounded transition-colors flex-shrink-0"
-                      >
-                        {copied === "key" ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                  ) : password ? (
-                    <p className="text-xs text-red-400">Failed to load private key. Please check your password.</p>
-                  ) : (
-                    <p className="text-xs text-gray-400">Please enter your password above to view your private key.</p>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Mnemonic */}
-            <div>
-              <button
-                onClick={() => {
-                  setShowMnemonic(!showMnemonic)
-                  if (!showMnemonic && !password) {
-                    setError("Please enter your password first")
-                  }
-                }}
-                className="flex items-center gap-2 text-green-400 hover:text-green-300 mb-2"
-              >
-                {showMnemonic ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                {showMnemonic ? "Hide" : "Show"} Seed Phrase
-              </button>
-              {showMnemonic && (
-                <>
-                  {loadingMnemonic ? (
-                    <div className="flex items-center gap-2 text-gray-400 text-sm py-2">
-                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      Loading seed phrase...
-                    </div>
-                  ) : mnemonic ? (
-                    <div className="flex items-center gap-2">
-                      <code className="text-xs font-mono text-yellow-400 break-all bg-black/50 p-2 rounded flex-1">
-                        {mnemonic}
-                      </code>
-                      <button
-                        onClick={() => handleCopy(mnemonic, "seed")}
-                        className="p-2 hover:bg-white/10 rounded transition-colors flex-shrink-0"
-                      >
-                        {copied === "seed" ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                  ) : password ? (
-                    <p className="text-xs text-red-400">Failed to load seed phrase. Please check your password.</p>
-                  ) : (
-                    <p className="text-xs text-gray-400">Please enter your password above to view your seed phrase.</p>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="glass-card p-6 space-y-3">
-            <button onClick={handleLock} className="w-full flex items-center justify-center gap-2 btn-secondary">
-              <Lock className="w-4 h-4" />
-              Lock Wallet
-            </button>
-
-            <button
-              onClick={handleReset}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 transition-all"
-            >
-              <Trash2 className="w-4 h-4" />
-              Reset Wallet
-            </button>
-          </div>
-
-          {/* Info */}
-          <div className="glass-card p-4 text-sm text-gray-400">
-            <p>
-              Never share your private key or seed phrase with anyone. This wallet is non-custodial - only you have
-              access to your keys.
-            </p>
-          </div>
+        <div>
+          <h1 className="text-lg font-bold">Settings</h1>
+          <p className="text-xs" style={{ color: "#6b7280" }}>Manage wallet & security</p>
         </div>
       </div>
+
+      <div className="max-w-lg mx-auto px-4">
+
+        {/* ── Wallet card ── */}
+        {activeWallet && (
+          <div
+            className="mt-5 rounded-2xl p-5"
+            style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-base"
+                style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#13141a" }}
+              >
+                {(activeWallet.name || "W")[0].toUpperCase()}
+              </div>
+              <div>
+                <p className="font-semibold text-sm">{activeWallet.name || "My Wallet"}</p>
+                <p className="text-xs font-mono" style={{ color: "#6b7280" }}>
+                  {activeWallet.address.slice(0, 10)}...{activeWallet.address.slice(-8)}
+                </p>
+              </div>
+              <button
+                onClick={() => handleCopy(activeWallet.address, "address")}
+                className="ml-auto p-2 rounded-lg transition-colors"
+                style={{ background: "rgba(255,255,255,0.06)" }}
+              >
+                {copied === "address" ? (
+                  <Check className="w-4 h-4" style={{ color: "#00ff88" }} />
+                ) : (
+                  <Copy className="w-4 h-4" style={{ color: "#9ca3af" }} />
+                )}
+              </button>
+            </div>
+            {/* Full address */}
+            <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p className="text-xs font-mono break-all" style={{ color: "#00ff88" }}>
+                {activeWallet.address}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Security ── */}
+        <SectionHeader label="Security" />
+        <SettingSection>
+          <SettingRow
+            icon={<Key className="w-4 h-4" />}
+            label="Change PIN"
+            sublabel="Update your 4-digit unlock PIN"
+            onClick={() => setModal("passcode")}
+          />
+          <SettingRow
+            icon={<Clock className="w-4 h-4" />}
+            label="Auto-Lock"
+            sublabel="Lock after inactivity"
+            right={<span className="text-sm font-semibold" style={{ color: "#00ff88" }}>{autoLockLabel}</span>}
+            onClick={() => setModal("autoLock")}
+          />
+          <SettingRow
+            icon={<Lock className="w-4 h-4" />}
+            label="Lock Wallet"
+            sublabel="Lock immediately"
+            onClick={() => { lockWallet(); router.push("/unlock") }}
+          />
+        </SettingSection>
+
+        {/* ── Recovery ── */}
+        <SectionHeader label="Recovery Keys" />
+        <SettingSection>
+          <SettingRow
+            icon={<Eye className="w-4 h-4" />}
+            iconBg="rgba(245,158,11,0.12)"
+            iconColor="#f59e0b"
+            label="Show Private Key"
+            sublabel="Requires your PIN"
+            onClick={() => setModal("privateKey")}
+          />
+          <SettingRow
+            icon={<Key className="w-4 h-4" />}
+            iconBg="rgba(245,158,11,0.12)"
+            iconColor="#f59e0b"
+            label="Show Seed Phrase"
+            sublabel="Requires your PIN"
+            onClick={() => setModal("seedPhrase")}
+          />
+        </SettingSection>
+
+        {/* ── Preferences ── */}
+        <SectionHeader label="Preferences" />
+        <SettingSection>
+          <SettingRow
+            icon={<Globe className="w-4 h-4" />}
+            label="Display Currency"
+            sublabel={`${selectedCurrency.name} (${selectedCurrency.code.toUpperCase()})`}
+            right={
+              <span className="text-sm font-bold" style={{ color: "#00ff88" }}>
+                {selectedCurrency.symbol}
+              </span>
+            }
+            onClick={() => setModal("currency")}
+          />
+        </SettingSection>
+
+        {/* ── Wallet management ── */}
+        <SectionHeader label="Wallet Management" />
+        <SettingSection>
+          {wallets.length > 1 && (
+            <SettingRow
+              icon={<Trash2 className="w-4 h-4" />}
+              label="Remove Active Wallet"
+              sublabel="Keep your primary wallet"
+              danger
+              onClick={() => setModal("deleteWallet")}
+            />
+          )}
+          <SettingRow
+            icon={<AlertTriangle className="w-4 h-4" />}
+            label="Reset All Wallets"
+            sublabel="Wipe all data permanently"
+            danger
+            onClick={() => {
+              if (confirm("⚠️ This deletes ALL wallets permanently. Make sure you have your seed phrases saved!")) {
+                clearAllWallets()
+                deleteAllCookies()
+                router.push("/setup")
+              }
+            }}
+          />
+        </SettingSection>
+
+        {/* ── Info card ── */}
+        <div
+          className="mt-2 mb-8 rounded-2xl p-4 flex items-start gap-3"
+          style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}
+        >
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
+          <p className="text-xs leading-relaxed" style={{ color: "#9ca3af" }}>
+            Never share your private key or seed phrase. This is a non-custodial wallet — only you control your keys.
+          </p>
+        </div>
+      </div>
+
+      {/* ─── MODALS ─── */}
+
+      {/* Change PIN */}
+      {modal === "passcode" && (
+        <Modal title="Change PIN" onClose={closeModal}>
+          {changePasscodeSuccess ? (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "rgba(0,255,136,0.12)" }}>
+                <Check className="w-7 h-7" style={{ color: "#00ff88" }} />
+              </div>
+              <p className="font-semibold text-center" style={{ color: "#00ff88" }}>{changePasscodeSuccess}</p>
+            </div>
+          ) : (
+            <>
+              {[
+                { label: "Current PIN", val: currentPassword, set: setCurrentPassword },
+                { label: "New PIN (4 digits)", val: newPassword, set: setNewPassword },
+                { label: "Confirm New PIN", val: confirmPassword, set: setConfirmPassword },
+              ].map(({ label, val, set }) => (
+                <div key={label}>
+                  <label className="block text-xs font-semibold mb-2" style={{ color: "#9ca3af" }}>{label}</label>
+                  <input
+                    type="password"
+                    maxLength={4}
+                    value={val}
+                    onChange={(e) => { set(e.target.value); setError("") }}
+                    placeholder="••••"
+                    className="input-field"
+                  />
+                </div>
+              ))}
+              {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+              <button
+                onClick={handleChangePasscode}
+                disabled={changePasscodeLoading}
+                className="btn-primary w-full"
+              >
+                {changePasscodeLoading ? "Updating…" : "Update PIN"}
+              </button>
+            </>
+          )}
+        </Modal>
+      )}
+
+      {/* Private Key */}
+      {modal === "privateKey" && (
+        <Modal title="Show Private Key" onClose={closeModal}>
+          <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
+            <p className="text-xs leading-relaxed" style={{ color: "#9ca3af" }}>
+              Never share your private key. Anyone with it can drain your wallet.
+            </p>
+          </div>
+          {!showSecret ? (
+            <>
+              <div>
+                <label className="block text-xs font-semibold mb-2" style={{ color: "#9ca3af" }}>Enter PIN to reveal</label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={revealPassword}
+                  onChange={(e) => { setRevealPassword(e.target.value); setError("") }}
+                  placeholder="••••"
+                  className="input-field"
+                />
+              </div>
+              {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+              <button onClick={() => revealSecret("privateKey")} disabled={loadingSecret} className="btn-primary w-full">
+                {loadingSecret ? "Decrypting…" : "Reveal Key"}
+              </button>
+            </>
+          ) : privateKey ? (
+            <div>
+              <label className="block text-xs font-semibold mb-2" style={{ color: "#9ca3af" }}>Your Private Key</label>
+              <div className="relative">
+                <div className="p-4 rounded-xl font-mono text-xs break-all" style={{ background: "#0e0f17", border: "1px solid rgba(255,255,255,0.08)", color: "#f59e0b" }}>
+                  {privateKey}
+                </div>
+                <button
+                  onClick={() => handleCopy(privateKey, "pk")}
+                  className="absolute top-3 right-3 p-1.5 rounded-lg"
+                  style={{ background: "rgba(255,255,255,0.1)" }}
+                >
+                  {copied === "pk" ? <Check className="w-3.5 h-3.5" style={{ color: "#00ff88" }} /> : <Copy className="w-3.5 h-3.5" style={{ color: "#9ca3af" }} />}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-center" style={{ color: "#ef4444" }}>Failed to decrypt. Wrong PIN?</p>
+          )}
+        </Modal>
+      )}
+
+      {/* Seed Phrase */}
+      {modal === "seedPhrase" && (
+        <Modal title="Show Seed Phrase" onClose={closeModal}>
+          <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
+            <p className="text-xs leading-relaxed" style={{ color: "#9ca3af" }}>
+              Your seed phrase is the master key to all your wallets. Never share it.
+            </p>
+          </div>
+          {!showSecret ? (
+            <>
+              <div>
+                <label className="block text-xs font-semibold mb-2" style={{ color: "#9ca3af" }}>Enter PIN to reveal</label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={revealPassword}
+                  onChange={(e) => { setRevealPassword(e.target.value); setError("") }}
+                  placeholder="••••"
+                  className="input-field"
+                />
+              </div>
+              {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+              <button onClick={() => revealSecret("seedPhrase")} disabled={loadingSecret} className="btn-primary w-full">
+                {loadingSecret ? "Decrypting…" : "Reveal Seed Phrase"}
+              </button>
+            </>
+          ) : mnemonic ? (
+            <div>
+              <label className="block text-xs font-semibold mb-2" style={{ color: "#9ca3af" }}>Your Seed Phrase</label>
+              <div
+                className="p-4 rounded-xl font-mono text-sm leading-relaxed"
+                style={{ background: "#0e0f17", border: "1px solid rgba(255,255,255,0.08)", color: "#f59e0b" }}
+              >
+                {mnemonic.split(" ").map((word, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 mr-2 mb-1">
+                    <span className="text-[10px]" style={{ color: "#4b5563" }}>{i + 1}.</span>
+                    <span>{word}</span>
+                  </span>
+                ))}
+              </div>
+              <button
+                onClick={() => handleCopy(mnemonic, "seed")}
+                className="mt-2 w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#9ca3af" }}
+              >
+                {copied === "seed" ? <Check className="w-4 h-4" style={{ color: "#00ff88" }} /> : <Copy className="w-4 h-4" />}
+                {copied === "seed" ? "Copied!" : "Copy Phrase"}
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-center" style={{ color: "#ef4444" }}>Failed to decrypt. Wrong PIN?</p>
+          )}
+        </Modal>
+      )}
+
+      {/* Auto-Lock */}
+      {modal === "autoLock" && (
+        <Modal title="Auto-Lock Timer" onClose={closeModal}>
+          <p className="text-sm" style={{ color: "#9ca3af" }}>
+            Lock the wallet after this many seconds of inactivity. Set to 0 to disable.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: "#9ca3af" }}>Seconds (0 = never)</label>
+            <input
+              type="number"
+              min={0}
+              value={autoLockSeconds}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10)
+                if (!isNaN(v)) { setAutoLockSecondsState(v); setAutoLockSeconds(v) }
+              }}
+              className="input-field"
+            />
+          </div>
+          <div className="flex gap-2">
+            {[0, 60, 300, 900].map((v) => (
+              <button
+                key={v}
+                onClick={() => { setAutoLockSecondsState(v); setAutoLockSeconds(v) }}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                style={
+                  autoLockSeconds === v
+                    ? { background: "rgba(0,255,136,0.12)", border: "1px solid rgba(0,255,136,0.25)", color: "#00ff88" }
+                    : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#9ca3af" }
+                }
+              >
+                {v === 0 ? "Never" : v === 60 ? "1m" : v === 300 ? "5m" : "15m"}
+              </button>
+            ))}
+          </div>
+          <button onClick={closeModal} className="btn-primary w-full">Save</button>
+        </Modal>
+      )}
+
+      {/* Currency */}
+      {modal === "currency" && (
+        <Modal title="Display Currency" onClose={closeModal}>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {CURRENCIES.map((c) => (
+              <button
+                key={c.code}
+                onClick={() => {
+                  setSelectedCurrency(c)
+                  saveCurrency(c)
+                  closeModal()
+                  window.location.reload()
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
+                style={
+                  selectedCurrency.code === c.code
+                    ? { background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.25)" }
+                    : { background: "rgba(255,255,255,0.04)", border: "1px solid transparent" }
+                }
+              >
+                <span
+                  className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
+                  style={{ background: "rgba(255,255,255,0.08)", color: selectedCurrency.code === c.code ? "#00ff88" : "#9ca3af" }}
+                >
+                  {c.symbol}
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{c.name}</p>
+                  <p className="text-xs" style={{ color: "#6b7280" }}>{c.code.toUpperCase()}</p>
+                </div>
+                {selectedCurrency.code === c.code && <Check className="w-4 h-4" style={{ color: "#00ff88" }} />}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete active wallet */}
+      {modal === "deleteWallet" && (
+        <Modal title="Remove Wallet" onClose={closeModal}>
+          <div className="flex items-start gap-3 p-4 rounded-xl" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#ef4444" }} />
+            <p className="text-xs leading-relaxed" style={{ color: "#9ca3af" }}>
+              This will remove the active wallet from this device. You can re-import it later with your seed phrase.
+            </p>
+          </div>
+          {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+          <div className="flex gap-3">
+            <button onClick={closeModal} className="btn-secondary flex-1">Cancel</button>
+            <button
+              onClick={() => {
+                if (wallets.length <= 1) { setError("Cannot delete primary wallet"); return }
+                const active = getCurrentWallet() || wallets[0]
+                if (wallets[0].id === active.id) { setError("Cannot delete primary wallet"); return }
+                try { deleteWallet(active.id); setWallets(getWallets()); closeModal() }
+                catch (err: any) { setError(err.message || "Failed to delete wallet") }
+              }}
+              className="btn-danger flex-1"
+            >
+              Remove
+            </button>
+          </div>
+        </Modal>
+      )}
 
       <BottomNav active="settings" />
     </div>

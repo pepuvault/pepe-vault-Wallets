@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getWallets, getWalletState, updateActivity } from "@/lib/wallet"
-import { ImageIcon, Loader } from "lucide-react"
+import { ImageIcon, Loader, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import BottomNav from "@/components/BottomNav"
 import { ethers } from "ethers"
@@ -191,67 +191,72 @@ export default function NFTsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
-      {/* Header */}
-      <div className="glass-card rounded-none p-6 border-b border-white/10 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-              <ImageIcon className="w-5 h-5 text-green-500" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">NFT Gallery</h1>
-              <p className="text-sm text-gray-400">Your PEPU Collections</p>
-            </div>
-          </div>
-          <Link href="/dashboard" className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-            ✕
-          </Link>
+    <div className="min-h-screen pb-28 text-white" style={{ background: "#13141a" }}>
+
+      {/* ── Header ── */}
+      <div
+        className="sticky top-0 z-40 flex items-center gap-3 px-5 py-4"
+        style={{ background: "rgba(19,20,26,0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <Link
+          href="/dashboard"
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-base font-bold">NFT Gallery</h1>
+          <p className="text-xs" style={{ color: "#6b7280" }}>Your PEPU Collections</p>
         </div>
+        {/* PEPU-only badge */}
+        <span className="text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5" style={{ background: "rgba(0,255,136,0.1)", color: "#00ff88", border: "1px solid rgba(0,255,136,0.2)" }}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current" />
+          PEPU
+        </span>
       </div>
 
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 mt-8">
-        <p className="text-sm text-gray-400 mb-2">Network</p>
-        <button className="px-4 py-2 rounded-lg font-semibold bg-green-500/20 text-green-400 cursor-default mb-6">
-          PEPU Only
-        </button>
-
+      <div className="max-w-md mx-auto px-4 pt-5">
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="flex flex-col items-center gap-3">
-              <Loader className="w-8 h-8 animate-spin text-green-500" />
-              <p className="text-gray-400">Loading NFTs from blockchain...</p>
-            </div>
+          <div className="flex flex-col items-center py-16 gap-3">
+            <Loader className="w-8 h-8 animate-spin" style={{ color: "#00ff88" }} />
+            <p className="text-sm" style={{ color: "#6b7280" }}>Scanning blockchain for NFTs…</p>
           </div>
         ) : nfts.length === 0 ? (
-          <div className="glass-card p-12 text-center">
-            <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No NFTs Found</h3>
-            <p className="text-gray-400 mb-2">No ERC721 NFTs detected on PEPU network</p>
-            <p className="text-sm text-gray-500">Your NFTs will appear here once they're detected</p>
+          <div
+            className="flex flex-col items-center py-16 gap-3"
+            style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 24 }}
+          >
+            <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <ImageIcon className="w-7 h-7" style={{ color: "#374151" }} />
+            </div>
+            <p className="font-semibold" style={{ color: "#9ca3af" }}>No NFTs found</p>
+            <p className="text-sm text-center px-6" style={{ color: "#4b5563" }}>
+              No ERC721 NFTs detected on the PEPU network
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 gap-3">
             {nfts.map((nft, idx) => (
               <div
                 key={`${nft.contractAddress}-${nft.tokenId}-${idx}`}
-                className="glass-card overflow-hidden hover:border-green-500/50 transition-all group"
+                className="overflow-hidden rounded-2xl transition-all"
+                style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.08)" }}
               >
-                <div className="relative aspect-square bg-white/5 overflow-hidden">
+                <div className="relative aspect-square overflow-hidden" style={{ background: "rgba(255,255,255,0.04)" }}>
                   <img
                     src={nft.image || "/placeholder.svg"}
                     alt={nft.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    onError={(e) => {
-                      e.currentTarget.src = "/placeholder.svg"
-                    }}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.src = "/placeholder.svg" }}
                   />
                 </div>
-                <div className="p-4">
-                  <p className="text-xs text-gray-400 mb-1">{nft.collectionName}</p>
-                  <h3 className="font-bold mb-2 truncate">{nft.name}</h3>
-                  <p className="text-xs text-green-400">ID: {nft.tokenId}</p>
+                <div className="p-3">
+                  <p className="text-xs truncate mb-0.5" style={{ color: "#6b7280" }}>{nft.collectionName}</p>
+                  <h3 className="text-sm font-semibold truncate mb-1">{nft.name}</h3>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(0,255,136,0.1)", color: "#00ff88" }}>
+                    #{nft.tokenId}
+                  </span>
                 </div>
               </div>
             ))}

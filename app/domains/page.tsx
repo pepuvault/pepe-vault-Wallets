@@ -269,400 +269,236 @@ export default function DomainsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="glass-card rounded-none p-6 border-b border-white/10 sticky top-0 backdrop-blur-xl bg-gradient-to-b from-black/80 to-black/60">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500/30 to-green-500/10 flex items-center justify-center border border-green-500/30 shadow-lg shadow-green-500/20">
-              <Globe className="w-6 h-6 text-green-400" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent">
-                Register Domain
-              </h1>
-              <p className="text-sm text-gray-400">Get your unique .pepu domain name</p>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen pb-28 text-white" style={{ background: "#13141a" }}>
 
-        <div className="p-4 md:p-8 space-y-6">
-          {/* User's Existing Domain */}
+      {/* ── Header ── */}
+      <div
+        className="sticky top-0 z-40 flex items-center gap-3 px-5 py-4"
+        style={{ background: "rgba(19,20,26,0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(0,255,136,0.12)" }}>
+          <Globe className="w-4 h-4" style={{ color: "#00ff88" }} />
+        </div>
+        <div>
+          <h1 className="text-base font-bold">Register Domain</h1>
+          <p className="text-xs" style={{ color: "#6b7280" }}>Get your unique .pepu name</p>
+        </div>
+      </div>
+
+      <div className="max-w-md mx-auto px-4 pt-5 space-y-4">
+          {/* ── User's existing domain ── */}
           {loadingUserDomain ? (
-            <div className="glass-card p-8 text-center border border-white/10 backdrop-blur-xl">
-              <Loader className="w-6 h-6 animate-spin mx-auto text-green-500" />
-              <p className="text-sm text-gray-400 mt-3">Loading your domain...</p>
+            <div className="flex items-center justify-center py-8 gap-2">
+              <Loader className="w-5 h-5 animate-spin" style={{ color: "#00ff88" }} />
+              <span className="text-sm" style={{ color: "#6b7280" }}>Loading your domain…</span>
             </div>
           ) : userDomain && userDomainInfo ? (
-            <div className="glass-card p-6 border-2 border-green-500/40 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent backdrop-blur-xl shadow-2xl shadow-green-500/20">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-full bg-green-500/30 flex items-center justify-center border border-green-500/50">
-                  <CheckCircle className="w-6 h-6 text-green-400" />
+            <div className="rounded-3xl p-5 space-y-4" style={{ background: "#1a1d2e", border: "1px solid rgba(0,255,136,0.2)" }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: "rgba(0,255,136,0.12)" }}>
+                  <CheckCircle className="w-5 h-5" style={{ color: "#00ff88" }} />
                 </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent">
-                  Your Domain
-                </h2>
+                <div>
+                  <p className="font-bold" style={{ color: "#00ff88" }}>{userDomain}</p>
+                  <p className="text-xs" style={{ color: "#6b7280" }}>Your registered domain</p>
+                </div>
               </div>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-400">Domain Name</p>
-                  <p className="text-lg font-semibold text-green-400">{userDomain}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-400">Wallet Address</p>
-                    <p className="text-sm font-mono break-all">{userDomainInfo.walletAddress}</p>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                {[
+                  { label: "Registered", value: new Date(userDomainInfo.registrationTimestamp * 1000).toLocaleDateString() },
+                  { label: "Expires", value: new Date(userDomainInfo.expiryTimestamp * 1000).toLocaleDateString() },
+                  { label: "Time left", value: userDomainInfo.expiryTimestamp > Date.now() / 1000 ? `${Math.floor((userDomainInfo.expiryTimestamp - Date.now() / 1000) / 86400)} days` : "Expired" },
+                ].map(row => (
+                  <div key={row.label} className="rounded-xl p-2.5" style={{ background: "rgba(255,255,255,0.04)" }}>
+                    <p style={{ color: "#6b7280" }}>{row.label}</p>
+                    <p className="font-semibold mt-0.5">{row.value}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-400">Owner</p>
-                    <p className="text-sm font-mono break-all">{userDomainInfo.owner}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-400">Registration Date</p>
-                    <p className="text-sm">
-                      {new Date(userDomainInfo.registrationTimestamp * 1000).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-400">Expiry Date</p>
-                    <p className="text-sm">
-                      {new Date(userDomainInfo.expiryTimestamp * 1000).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Time Remaining</p>
-                  <p className="text-sm">
-                    {userDomainInfo.expiryTimestamp > Date.now() / 1000
-                      ? `${Math.floor((userDomainInfo.expiryTimestamp - Date.now() / 1000) / 86400)} days`
-                      : "Expired"}
-                  </p>
-                </div>
+                ))}
               </div>
             </div>
           ) : null}
 
-          {/* Search Bar */}
-          <div className="glass-card p-6 border border-white/10 backdrop-blur-xl">
-            <label className="block text-sm font-semibold text-gray-300 mb-3">Search Domain</label>
-            <div className="flex gap-3">
+          {/* ── Search bar ── */}
+          <div className="rounded-3xl p-5 space-y-3" style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <p className="text-xs font-semibold" style={{ color: "#6b7280" }}>Search Domain</p>
+            <div className="flex gap-2">
               <div className="relative flex-1">
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value)
-                    setIsAvailable(null)
-                    setDomainStatus(null)
-                    setShowRegisterForm(false)
-                    setError("")
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSearch()
-                    }
-                  }}
-                  placeholder="Enter domain name (e.g., myname)"
-                  className="input-field pl-12 bg-white/5 border-white/20 focus:border-green-500/50 focus:ring-2 focus:ring-green-500/30"
+                  onChange={(e) => { setSearchQuery(e.target.value); setIsAvailable(null); setDomainStatus(null); setShowRegisterForm(false); setError("") }}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSearch() }}
+                  placeholder="yourname"
+                  className="input-field text-sm pl-4 pr-16"
                 />
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold" style={{ color: "#6b7280" }}>.pepu</span>
               </div>
               <button
                 onClick={handleSearch}
                 disabled={isChecking || !searchQuery.trim()}
-                className="btn-primary px-8 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[120px] justify-center"
+                className="px-4 py-3 rounded-2xl font-bold text-sm flex items-center gap-1.5 flex-shrink-0 transition-all active:scale-95"
+                style={isChecking || !searchQuery.trim()
+                  ? { background: "rgba(255,255,255,0.06)", color: "#4b5563", cursor: "not-allowed" }
+                  : { background: "#00ff88", color: "#13141a" }}
               >
-                {isChecking ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" />
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-4 h-4" />
-                    Search
-                  </>
-                )}
+                {isChecking ? <Loader className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                {isChecking ? "" : "Search"}
               </button>
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-              <p className="text-xs text-gray-500 px-2">
-                {searchQuery ? `${searchQuery}.pepu` : "yourname.pepu"}
-              </p>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
             </div>
           </div>
 
-          {/* Availability Status */}
+          {/* ── Availability status ── */}
           {isAvailable !== null && (
             <div
-              className={`glass-card p-6 border-2 backdrop-blur-xl shadow-2xl transition-all duration-300 ${
-                isAvailable
-                  ? "border-green-500/50 bg-gradient-to-br from-green-500/20 via-green-500/10 to-transparent shadow-green-500/20"
-                  : "border-red-500/50 bg-gradient-to-br from-red-500/20 via-red-500/10 to-transparent shadow-red-500/20"
-              }`}
+              className="flex items-center gap-4 p-4 rounded-2xl"
+              style={isAvailable
+                ? { background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.2)" }
+                : { background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
             >
-              <div className="flex items-center gap-4">
-                {isAvailable ? (
-                  <>
-                    <div className="w-12 h-12 rounded-full bg-green-500/30 flex items-center justify-center border-2 border-green-500/50">
-                      <CheckCircle className="w-7 h-7 text-green-400" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-lg text-green-400 mb-1">
-                        {searchQuery.replace(".pepu", "")}.pepu is available! 🎉
-                      </p>
-                      {domainStatus && (
-                        <p className="text-sm text-gray-300">
-                          Base fee: <span className="font-semibold text-green-400">{Number.parseFloat(domainStatus.fee).toFixed(2)} USDC</span> per year
-                        </p>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-12 h-12 rounded-full bg-red-500/30 flex items-center justify-center border-2 border-red-500/50">
-                      <XCircle className="w-7 h-7 text-red-400" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-lg text-red-400 mb-1">
-                        {searchQuery.replace(".pepu", "")}.pepu is not available
-                      </p>
-                      {domainStatus && domainStatus.exists && (
-                        <p className="text-sm text-gray-300">
-                          {domainStatus.expired
-                            ? "This domain has expired"
-                            : `Registered for ${domainStatus.remainingDays} more days`}
-                        </p>
-                      )}
-                    </div>
-                  </>
+              {isAvailable
+                ? <CheckCircle className="w-5 h-5 flex-shrink-0" style={{ color: "#00ff88" }} />
+                : <XCircle className="w-5 h-5 flex-shrink-0" style={{ color: "#ef4444" }} />}
+              <div>
+                <p className="text-sm font-semibold" style={{ color: isAvailable ? "#00ff88" : "#ef4444" }}>
+                  {searchQuery.replace(".pepu", "")}.pepu is {isAvailable ? "available!" : "taken"}
+                </p>
+                {domainStatus && isAvailable && (
+                  <p className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
+                    Base fee: {Number.parseFloat(domainStatus.fee).toFixed(2)} USDC/year
+                  </p>
+                )}
+                {domainStatus && !isAvailable && domainStatus.exists && (
+                  <p className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
+                    {domainStatus.expired ? "This domain has expired" : `Registered for ${domainStatus.remainingDays} more days`}
+                  </p>
                 )}
               </div>
             </div>
           )}
 
-          {/* Registration Form */}
+          {/* ── Registration form ── */}
           {showRegisterForm && isAvailable && (
-            <div className="glass-card p-6 space-y-6 border-2 border-green-500/30 bg-gradient-to-br from-green-500/10 via-transparent to-transparent backdrop-blur-xl shadow-2xl shadow-green-500/10">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-green-500/30 flex items-center justify-center border border-green-500/50">
-                  <Globe className="w-5 h-5 text-green-400" />
-                </div>
-                <h3 className="text-xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent">
-                  Register Domain
-                </h3>
-              </div>
+            <div className="rounded-3xl p-5 space-y-4" style={{ background: "#1a1d2e", border: "1px solid rgba(0,255,136,0.15)" }}>
+              <p className="text-sm font-bold" style={{ color: "#00ff88" }}>
+                Register {searchQuery.replace(".pepu", "")}.pepu
+              </p>
 
-              {/* Input Mode Toggle */}
+              {/* Period mode toggle */}
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Registration Period</label>
-                <div className="flex gap-2 mb-3">
-                  <button
-                    onClick={() => setInputMode("days")}
-                    className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
-                      inputMode === "days"
-                        ? "bg-green-500 text-black"
-                        : "bg-white/10 text-gray-400 hover:bg-white/20"
-                    }`}
-                  >
-                    Days
-                  </button>
-                  <button
-                    onClick={() => setInputMode("years")}
-                    className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-all ${
-                      inputMode === "years"
-                        ? "bg-green-500 text-black"
-                        : "bg-white/10 text-gray-400 hover:bg-white/20"
-                    }`}
-                  >
-                    Years
-                  </button>
+                <p className="text-xs font-semibold mb-2" style={{ color: "#6b7280" }}>Registration Period</p>
+                <div
+                  className="flex rounded-2xl p-1 gap-1 mb-3"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+                >
+                  {(["days", "years"] as const).map(mode => (
+                    <button key={mode} onClick={() => setInputMode(mode)}
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold capitalize transition-all"
+                      style={inputMode === mode
+                        ? { background: "#13141a", border: "1px solid rgba(255,255,255,0.1)", color: "#00ff88" }
+                        : { color: "#6b7280" }}>
+                      {mode}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Days Input */}
-                {inputMode === "days" && (
+                {inputMode === "days" ? (
                   <div className="space-y-2">
-                    <input
-                      type="number"
-                      min="1"
-                      max="21900"
-                      value={days}
-                      onChange={(e) => {
-                        const value = Number.parseInt(e.target.value) || 1
-                        const clampedValue = Math.max(1, Math.min(21900, value))
-                        setDays(clampedValue)
-                        setYears(Math.ceil(clampedValue / 365))
-                      }}
-                      placeholder="Enter days (1-21,900)"
-                      className="input-field w-full"
-                    />
-                    <p className="text-xs text-gray-500">
-                      {days} days = {Math.ceil(days / 365)} year{Math.ceil(days / 365) !== 1 ? "s" : ""} (rounded up)
-                    </p>
+                    <input type="number" min="1" max="21900" value={days}
+                      onChange={e => { const v = Math.max(1, Math.min(21900, Number.parseInt(e.target.value) || 1)); setDays(v); setYears(Math.ceil(v / 365)) }}
+                      placeholder="Days (1–21,900)" className="input-field text-sm" />
+                    <p className="text-xs" style={{ color: "#4b5563" }}>{days}d = {Math.ceil(days / 365)}yr</p>
                     <div className="flex gap-1 flex-wrap">
-                      {[30, 90, 180, 365, 730, 1095, 1825].map((d) => (
-                        <button
-                          key={d}
-                          onClick={() => {
-                            setDays(d)
-                            setYears(Math.ceil(d / 365))
-                          }}
-                          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                            days === d
-                              ? "bg-green-500 text-black"
-                              : "bg-white/10 text-gray-400 hover:bg-white/20"
-                          }`}
-                        >
+                      {[30, 90, 180, 365, 730, 1095, 1825].map(d => (
+                        <button key={d} onClick={() => { setDays(d); setYears(Math.ceil(d / 365)) }}
+                          className="px-3 py-1 rounded-xl text-xs font-semibold transition-all"
+                          style={days === d
+                            ? { background: "rgba(0,255,136,0.15)", border: "1px solid rgba(0,255,136,0.3)", color: "#00ff88" }
+                            : { background: "rgba(255,255,255,0.06)", color: "#6b7280" }}>
                           {d}d
                         </button>
                       ))}
                     </div>
                   </div>
-                )}
-
-                {/* Years Input */}
-                {inputMode === "years" && (
+                ) : (
                   <div className="space-y-2">
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="number"
-                        min="1"
-                        max="60"
-                        value={years}
-                        onChange={(e) => {
-                          const value = Number.parseInt(e.target.value) || 1
-                          const clampedValue = Math.max(1, Math.min(60, value))
-                          setYears(clampedValue)
-                          setDays(clampedValue * 365)
-                        }}
-                        className="input-field flex-1"
-                      />
-                      <div className="flex gap-1">
-                        {[1, 5, 10, 20, 60].map((y) => (
-                          <button
-                            key={y}
-                            onClick={() => {
-                              setYears(y)
-                              setDays(y * 365)
-                            }}
-                            className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
-                              years === y
-                                ? "bg-green-500 text-black"
-                                : "bg-white/10 text-gray-400 hover:bg-white/20"
-                            }`}
-                          >
-                            {y}y
-                          </button>
-                        ))}
-                      </div>
+                    <input type="number" min="1" max="60" value={years}
+                      onChange={e => { const v = Math.max(1, Math.min(60, Number.parseInt(e.target.value) || 1)); setYears(v); setDays(v * 365) }}
+                      className="input-field text-sm" />
+                    <p className="text-xs" style={{ color: "#4b5563" }}>{years}yr = {years * 365}d</p>
+                    <div className="flex gap-1">
+                      {[1, 5, 10, 20, 60].map(y => (
+                        <button key={y} onClick={() => { setYears(y); setDays(y * 365) }}
+                          className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
+                          style={years === y
+                            ? { background: "rgba(0,255,136,0.15)", border: "1px solid rgba(0,255,136,0.3)", color: "#00ff88" }
+                            : { background: "rgba(255,255,255,0.06)", color: "#6b7280" }}>
+                          {y}y
+                        </button>
+                      ))}
                     </div>
-                    <p className="text-xs text-gray-500">{years} year{years !== 1 ? "s" : ""} = {years * 365} days</p>
                   </div>
                 )}
               </div>
 
-              {/* Fee Display */}
-              <div className="glass-card p-5 bg-gradient-to-br from-white/10 to-white/5 border border-white/20 backdrop-blur-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-semibold text-gray-300">Registration Fee</span>
-                  {loadingFee ? (
-                    <Loader className="w-5 h-5 animate-spin text-green-400" />
-                  ) : (
-                    <span className="text-2xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent">
-                      {Number.parseFloat(registrationFee).toFixed(2)} USDC
-                    </span>
-                  )}
+              {/* Fee display */}
+              <div className="rounded-2xl p-4 space-y-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="flex items-center justify-between text-sm">
+                  <span style={{ color: "#6b7280" }}>Registration fee</span>
+                  {loadingFee
+                    ? <Loader className="w-4 h-4 animate-spin" style={{ color: "#00ff88" }} />
+                    : <span className="font-bold" style={{ color: "#00ff88" }}>{Number.parseFloat(registrationFee).toFixed(2)} USDC</span>}
                 </div>
-                <div className="flex items-center justify-between text-sm text-gray-400 mb-3 pb-3 border-b border-white/10">
-                  <span>Your USDC Balance</span>
-                  {loadingBalance ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <span className="font-semibold">{Number.parseFloat(usdcBalance).toFixed(2)} USDC</span>
-                  )}
+                <div className="flex items-center justify-between text-sm">
+                  <span style={{ color: "#6b7280" }}>Your USDC balance</span>
+                  {loadingBalance
+                    ? <Loader className="w-4 h-4 animate-spin" style={{ color: "#9ca3af" }} />
+                    : <span className="font-semibold">{Number.parseFloat(usdcBalance).toFixed(2)} USDC</span>}
                 </div>
                 {Number.parseFloat(usdcBalance) < Number.parseFloat(registrationFee) && (
-                  <div className="mt-3 p-3 rounded-lg bg-red-500/20 border border-red-500/50">
-                    <p className="text-sm text-red-400 font-semibold">
-                      ⚠️ Insufficient USDC balance. You need{" "}
-                      <span className="font-bold">
-                        {(Number.parseFloat(registrationFee) - Number.parseFloat(usdcBalance)).toFixed(2)} more USDC
-                      </span>
-                      .
-                    </p>
-                  </div>
+                  <p className="text-xs pt-2" style={{ color: "#ef4444" }}>
+                    Need {(Number.parseFloat(registrationFee) - Number.parseFloat(usdcBalance)).toFixed(2)} more USDC
+                  </p>
                 )}
               </div>
 
               {/* Password */}
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your wallet password"
-                  className="input-field"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirmWalletReset()) {
-                      clearAllWallets()
-                      router.push("/setup")
-                    }
-                  }}
-                  className="mt-2 text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
-                >
+              <div className="space-y-2">
+                <p className="text-xs font-semibold" style={{ color: "#6b7280" }}>Wallet Password</p>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter your wallet password" className="input-field text-sm" />
+                <button type="button" onClick={() => { if (confirmWalletReset()) { clearAllWallets(); router.push("/setup") } }}
+                  className="flex items-center gap-1 text-xs" style={{ color: "#ef4444" }}>
                   <RotateCcw className="w-3 h-3" />
-                  Forgot Password? Reset Wallet
+                  Forgot password? Reset wallet
                 </button>
               </div>
 
-              {/* Register Button */}
+              {/* Register button */}
               <button
                 onClick={handleRegister}
-                disabled={
-                  registering ||
-                  !password ||
-                  Number.parseFloat(usdcBalance) < Number.parseFloat(registrationFee)
-                }
-                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 py-4 text-lg font-bold shadow-lg shadow-green-500/30 hover:shadow-green-500/40 transition-all"
+                disabled={registering || !password || Number.parseFloat(usdcBalance) < Number.parseFloat(registrationFee)}
+                className="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+                style={registering || !password || Number.parseFloat(usdcBalance) < Number.parseFloat(registrationFee)
+                  ? { background: "rgba(255,255,255,0.06)", color: "#4b5563", cursor: "not-allowed" }
+                  : { background: "#00ff88", color: "#13141a" }}
               >
-                {registering ? (
-                  <>
-                    <Loader className="w-5 h-5 animate-spin" />
-                    Registering Domain...
-                  </>
-                ) : (
-                  <>
-                    <Globe className="w-5 h-5" />
-                    Register {searchQuery.replace(".pepu", "")}.pepu
-                  </>
-                )}
+                {registering ? <><Loader className="w-4 h-4 animate-spin" /> Registering…</> : <><Globe className="w-4 h-4" /> Register {searchQuery.replace(".pepu", "")}.pepu</>}
               </button>
             </div>
           )}
 
-          {/* Error Message */}
+          {/* ── Error / success ── */}
           {error && (
-            <div className="glass-card p-4 border border-red-500/50 bg-red-500/10">
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className="p-4 rounded-2xl" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)" }}>
+              <p className="text-sm" style={{ color: "#fca5a5" }}>{error}</p>
             </div>
           )}
-
-          {/* Success Message */}
           {success && (
-            <div className="glass-card p-4 border border-green-500/50 bg-green-500/10">
-              <p className="text-green-400 text-sm">{success}</p>
+            <div className="p-4 rounded-2xl" style={{ background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.2)" }}>
+              <p className="text-sm" style={{ color: "#6ee7b7" }}>{success}</p>
             </div>
           )}
         </div>
-      </div>
 
       <BottomNav active="domains" />
     </div>

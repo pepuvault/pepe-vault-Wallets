@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getWallets, getWalletState, updateActivity, getCurrentWallet } from "@/lib/wallet"
+import { getWallets, updateActivity, getCurrentWallet } from "@/lib/wallet"
 import { getUnchainedProvider } from "@/lib/provider"
-import { Copy, Check } from "lucide-react"
+import { Copy, Check, ArrowLeft, Share2 } from "lucide-react"
 import { QRCodeCanvas } from "qrcode.react"
 import BottomNav from "@/components/BottomNav"
+import Link from "next/link"
 
 export default function ReceivePage() {
   const router = useRouter()
   const [address, setAddress] = useState("")
+  const [walletName, setWalletName] = useState("")
   const [chainId, setChainId] = useState(() => {
-    // Initialize from localStorage or default to PEPU
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("selected_chain")
       return saved ? Number(saved) : 97741
@@ -22,110 +23,172 @@ export default function ReceivePage() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    // Check if wallet exists
     const wallets = getWallets()
-    if (wallets.length === 0) {
-      router.push("/setup")
-      return
-    }
+    if (wallets.length === 0) { router.push("/setup"); return }
 
-    // Sync chainId from localStorage (in case it changed on another page)
     const saved = localStorage.getItem("selected_chain")
-    if (saved && Number(saved) !== chainId) {
-      setChainId(Number(saved))
-    }
+    if (saved && Number(saved) !== chainId) setChainId(Number(saved))
 
-    // Update provider chainId
     const provider = getUnchainedProvider()
     provider.setChainId(chainId)
 
-    // No password required for receive page
     updateActivity()
     const wallet = getCurrentWallet() || wallets[0]
     if (wallet) {
       setAddress(wallet.address)
+      setWalletName(wallet.name || "My Wallet")
     }
   }, [router, chainId])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(address)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), 2500)
   }
 
+  const switchChain = (id: number) => {
+    setChainId(id)
+    localStorage.setItem("selected_chain", id.toString())
+    const provider = getUnchainedProvider()
+    provider.setChainId(id)
+  }
+
+  const networkName = chainId === 1 ? "Ethereum" : "PEPU Chain"
+  const networkColor = chainId === 1 ? "#627eea" : "#00ff88"
+
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
-      <div className="max-w-md mx-auto pt-8 px-4">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold gradient-text mb-2">Receive Tokens</h1>
-          <p className="text-gray-400">Share your wallet address</p>
+    <div className="min-h-screen pb-28 text-white" style={{ background: "#13141a" }}>
+
+      {/* ── Header ── */}
+      <div
+        className="sticky top-0 z-40 flex items-center gap-3 px-5 py-4"
+        style={{ background: "rgba(19,20,26,0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <Link
+          href="/dashboard"
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-base font-bold">Receive</h1>
+          <p className="text-xs" style={{ color: "#6b7280" }}>Share your address</p>
+        </div>
+      </div>
+
+      <div className="max-w-md mx-auto px-5 pt-6 flex flex-col items-center gap-6">
+
+        {/* ── Network pill ── */}
+        <div
+          className="flex rounded-2xl p-1 gap-1 self-stretch"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          {[{ id: 1, label: "Ethereum", color: "#627eea" }, { id: 97741, label: "PEPU", color: "#00ff88" }].map((n) => (
+            <button
+              key={n.id}
+              onClick={() => switchChain(n.id)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={
+                chainId === n.id
+                  ? { background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.1)", color: n.color }
+                  : { color: "#6b7280" }
+              }
+            >
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: n.color }} />
+              {n.label}
+            </button>
+          ))}
         </div>
 
-        {/* Chain Selector */}
-        <div className="glass-card p-4 mb-6">
-          <label className="block text-sm text-gray-400 mb-3">Network</label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                const newChainId = 1
-                setChainId(newChainId)
-                localStorage.setItem("selected_chain", newChainId.toString())
-                const provider = getUnchainedProvider()
-                provider.setChainId(newChainId)
-              }}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all flex-1 ${
-                chainId === 1 ? "bg-green-500 text-black" : "bg-white/10 text-gray-400 hover:bg-white/20"
-              }`}
+        {/* ── QR Card ── */}
+        <div
+          className="w-full rounded-3xl p-6 flex flex-col items-center gap-5"
+          style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          {/* wallet info */}
+          <div className="flex flex-col items-center gap-1 text-center">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg mb-1"
+              style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#13141a" }}
             >
-              Ethereum
-            </button>
-            <button
-              onClick={() => {
-                const newChainId = 97741
-                setChainId(newChainId)
-                localStorage.setItem("selected_chain", newChainId.toString())
-                const provider = getUnchainedProvider()
-                provider.setChainId(newChainId)
-              }}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all flex-1 ${
-                chainId === 97741 ? "bg-green-500 text-black" : "bg-white/10 text-gray-400 hover:bg-white/20"
-              }`}
+              {walletName[0]?.toUpperCase() || "W"}
+            </div>
+            <p className="font-semibold">{walletName}</p>
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full"
+              style={{ background: "rgba(255,255,255,0.06)" }}
             >
-              PEPU
-            </button>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: networkColor }} />
+              <span className="text-xs font-medium" style={{ color: "#9ca3af" }}>{networkName}</span>
+            </div>
           </div>
-        </div>
 
-        {/* QR Code */}
-        <div className="glass-card p-8 mb-6 flex justify-center">
+          {/* QR code */}
           {address && (
-            <QRCodeCanvas
-              value={`ethereum:${address}`}
-              size={256}
-              level="H"
-              includeMargin={true}
-              fgColor="#00ff88"
-              bgColor="#0a0a0a"
-            />
+            <div
+              className="p-4 rounded-2xl"
+              style={{ background: "#fff" }}
+            >
+              <QRCodeCanvas
+                value={`ethereum:${address}`}
+                size={200}
+                level="H"
+                includeMargin={false}
+                fgColor="#13141a"
+                bgColor="#ffffff"
+              />
+            </div>
           )}
-        </div>
 
-        {/* Address Display */}
-        <div className="glass-card p-4 mb-6">
-          <p className="text-sm text-gray-400 mb-3">Your Address</p>
-          <div className="flex items-center gap-2">
-            <code className="text-sm font-mono text-green-400 break-all flex-1">{address}</code>
-            <button onClick={handleCopy} className="p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0">
-              {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
-            </button>
+          {/* address */}
+          <div className="w-full">
+            <p className="text-xs font-semibold mb-2 text-center" style={{ color: "#6b7280" }}>Your Address</p>
+            <div
+              className="rounded-2xl p-3 flex items-center gap-2"
+              style={{ background: "#0e0f17", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <code
+                className="flex-1 text-xs font-mono break-all leading-relaxed"
+                style={{ color: "#00ff88" }}
+              >
+                {address}
+              </code>
+              <button
+                onClick={handleCopy}
+                className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-90"
+                style={{ background: copied ? "rgba(0,255,136,0.15)" : "rgba(255,255,255,0.08)" }}
+              >
+                {copied
+                  ? <Check className="w-4 h-4" style={{ color: "#00ff88" }} />
+                  : <Copy className="w-4 h-4" style={{ color: "#9ca3af" }} />}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Info */}
-        <div className="glass-card p-4 border border-green-500/20">
-          <p className="text-sm text-gray-400">
-            Share this address to receive tokens. Make sure to use the correct network.
+        {/* ── Copy button ── */}
+        <button
+          onClick={handleCopy}
+          className="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+          style={
+            copied
+              ? { background: "rgba(0,255,136,0.15)", border: "1px solid rgba(0,255,136,0.3)", color: "#00ff88" }
+              : { background: "#00ff88", color: "#13141a" }
+          }
+        >
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          {copied ? "Copied to Clipboard!" : "Copy Address"}
+        </button>
+
+        {/* ── Info banner ── */}
+        <div
+          className="w-full rounded-2xl p-4 text-center"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <p className="text-xs leading-relaxed" style={{ color: "#6b7280" }}>
+            Only send <strong style={{ color: "#9ca3af" }}>{networkName}</strong> compatible tokens to this address.
+            Sending tokens on the wrong network may result in permanent loss.
           </p>
         </div>
       </div>

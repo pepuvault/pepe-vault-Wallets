@@ -8,7 +8,7 @@ import { getNativeBalance, getProviderWithFallback } from "@/lib/rpc"
 import { getAllEthTokenBalances } from "@/lib/ethTokens"
 import { isTokenBlacklisted } from "@/lib/blacklist"
 import { getUnchainedProvider } from "@/lib/provider"
-import { Coins, Loader } from "lucide-react"
+import { Coins, Loader, ArrowLeft, Plus, X, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import BottomNav from "@/components/BottomNav"
 import TokenDetailsModal from "@/components/TokenDetailsModal"
@@ -21,12 +21,52 @@ const ERC20_ABI = [
   "function name() view returns (string)",
 ]
 
+/* ── gradient token avatar ── */
+const TAvatar = ({ symbol, size = 44 }: { symbol: string; size?: number }) => {
+  const palette = [
+    ["#00ff88", "#00cc6a"],
+    ["#3b82f6", "#2563eb"],
+    ["#8b5cf6", "#7c3aed"],
+    ["#f59e0b", "#d97706"],
+    ["#ec4899", "#db2777"],
+  ]
+  const [a, b] = palette[(symbol.charCodeAt(0) || 0) % palette.length]
+  return (
+    <div
+      className="rounded-full flex items-center justify-center font-bold flex-shrink-0"
+      style={{
+        width: size,
+        height: size,
+        background: `linear-gradient(135deg,${a},${b})`,
+        fontSize: size * 0.38,
+        color: "#fff",
+      }}
+    >
+      {(symbol[0] || "?").toUpperCase()}
+    </div>
+  )
+}
+
+/* ── skeleton row ── */
+const SkeletonRow = () => (
+  <div className="flex items-center gap-3 px-4 py-3 rounded-2xl animate-pulse" style={{ background: "#1a1d2e" }}>
+    <div className="w-11 h-11 rounded-full flex-shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />
+    <div className="flex-1 space-y-2">
+      <div className="h-3 rounded-full w-28" style={{ background: "rgba(255,255,255,0.08)" }} />
+      <div className="h-2.5 rounded-full w-16" style={{ background: "rgba(255,255,255,0.05)" }} />
+    </div>
+    <div className="space-y-2 text-right">
+      <div className="h-3 rounded-full w-16" style={{ background: "rgba(255,255,255,0.08)" }} />
+      <div className="h-2.5 rounded-full w-10" style={{ background: "rgba(255,255,255,0.05)" }} />
+    </div>
+  </div>
+)
+
 export default function TokensPage() {
   const router = useRouter()
   const [tokens, setTokens] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [chainId, setChainId] = useState(() => {
-    // Initialize from localStorage or default to PEPU
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("selected_chain")
       return saved ? Number(saved) : 97741
@@ -40,24 +80,17 @@ export default function TokensPage() {
   const [customError, setCustomError] = useState("")
 
   useEffect(() => {
-    // Check if wallet exists
     const wallets = getWallets()
     if (wallets.length === 0) {
       router.push("/setup")
       return
     }
-
-    // Sync chainId from localStorage (in case it changed on another page)
     const saved = localStorage.getItem("selected_chain")
     if (saved && Number(saved) !== chainId) {
       setChainId(Number(saved))
     }
-
-    // Update provider chainId
     const provider = getUnchainedProvider()
     provider.setChainId(chainId)
-
-    // No password required for viewing tokens
     updateActivity()
     fetchAllTokens()
   }, [router, chainId])
@@ -66,18 +99,11 @@ export default function TokensPage() {
     setLoading(true)
     try {
       const wallets = getWallets()
-      if (wallets.length === 0) {
-        setLoading(false)
-        return
-      }
-
+      if (wallets.length === 0) { setLoading(false); return }
       const wallet = getCurrentWallet() || wallets[0]
       const allTokens: any[] = []
-
-      // CRITICAL: Ensure correct chain - default to PEPU if not explicitly 1
       const currentChainId = chainId === 1 ? 1 : 97741
-      
-      // Get native balance
+
       const nativeBalance = await getNativeBalance(wallet.address, currentChainId)
       const nativeSymbol = currentChainId === 1 ? "ETH" : "PEPU"
       allTokens.push({
@@ -90,11 +116,8 @@ export default function TokensPage() {
       })
 
       if (currentChainId === 1) {
-        // For ETH chain, use getAllEthTokenBalances to get all ERC20 tokens
         try {
           const ethTokens = await getAllEthTokenBalances(wallet.address)
-        
-          // Filter out blacklisted tokens and convert to Token format
           for (const ethToken of ethTokens) {
             if (!isTokenBlacklisted(ethToken.address, currentChainId)) {
               allTokens.push({
@@ -111,39 +134,22 @@ export default function TokensPage() {
           console.error("Error loading ETH tokens:", error)
         }
       } else if (currentChainId === 97741) {
-        // For PEPU chain, scan for ERC20 tokens via transfer logs
         const provider = await getProviderWithFallback(currentChainId)
-
         const transferTopic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
         const currentBlock = await provider.getBlockNumber()
         const lookback = 10000
         const fromBlock = Math.max(0, currentBlock - lookback)
-
         try {
           const addressTopic = ethers.zeroPadValue(wallet.address, 32)
-
           const [logsFrom, logsTo] = await Promise.all([
-            provider.getLogs({
-              fromBlock,
-              toBlock: "latest",
-              topics: [transferTopic, addressTopic],
-            }),
-            provider.getLogs({
-              fromBlock,
-              toBlock: "latest",
-              topics: [transferTopic, null, addressTopic],
-            }),
+            provider.getLogs({ fromBlock, toBlock: "latest", topics: [transferTopic, addressTopic] }),
+            provider.getLogs({ fromBlock, toBlock: "latest", topics: [transferTopic, null, addressTopic] }),
           ])
-
           const logs = [...logsFrom, ...logsTo]
-          let tokenAddresses = [...new Set(logs.map((log) => log.address.toLowerCase()))]
-
-          // Filter out blacklisted tokens
-          const filteredTokenAddresses = tokenAddresses.filter(
+          const tokenAddresses = [...new Set(logs.map((log) => log.address.toLowerCase()))].filter(
             (addr) => !isTokenBlacklisted(addr, currentChainId)
           )
-
-          for (const tokenAddress of filteredTokenAddresses) {
+          for (const tokenAddress of tokenAddresses) {
             try {
               const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider)
               const [balance, decimals, symbol, name] = await Promise.all([
@@ -152,9 +158,7 @@ export default function TokensPage() {
                 contract.symbol().catch(() => "???"),
                 contract.name().catch(() => "Unknown Token"),
               ])
-
               const balanceFormatted = ethers.formatUnits(balance, decimals)
-
               if (Number.parseFloat(balanceFormatted) > 0) {
                 allTokens.push({
                   address: tokenAddress,
@@ -182,97 +186,103 @@ export default function TokensPage() {
     }
   }
 
+  const switchChain = (id: number) => {
+    setChainId(id)
+    localStorage.setItem("selected_chain", id.toString())
+    const provider = getUnchainedProvider()
+    provider.setChainId(id)
+  }
+
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
-      {/* Header */}
-      <div className="glass-card rounded-none p-6 border-b border-white/10 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-              <Coins className="w-5 h-5 text-green-500" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Tokens</h1>
-              <p className="text-sm text-gray-400">Your token portfolio</p>
-            </div>
-          </div>
-          <Link href="/dashboard" className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-            ✕
-          </Link>
+    <div className="min-h-screen pb-28 text-white" style={{ background: "#13141a" }}>
+
+      {/* ── Header ── */}
+      <div
+        className="sticky top-0 z-40 flex items-center gap-3 px-5 py-4"
+        style={{ background: "rgba(19,20,26,0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <Link
+          href="/dashboard"
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-base font-bold">Tokens</h1>
+          <p className="text-xs" style={{ color: "#6b7280" }}>Your token portfolio</p>
         </div>
+        <button
+          onClick={fetchAllTokens}
+          disabled={loading}
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} style={{ color: "#9ca3af" }} />
+        </button>
       </div>
 
-      {/* Chain Selector */}
-      <div className="max-w-6xl mx-auto px-4 mt-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-          <div>
-            <p className="text-sm text-gray-400 mb-3">Network</p>
-            <div className="flex gap-2 mb-2">
-              <button
-                onClick={() => {
-                  const newChainId = 1
-                  setChainId(newChainId)
-                  localStorage.setItem("selected_chain", newChainId.toString())
-                  const provider = getUnchainedProvider()
-                  provider.setChainId(newChainId)
-                }}
-                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                  chainId === 1 ? "bg-green-500 text-black" : "bg-white/10 text-gray-400 hover:bg-white/20"
-                }`}
-              >
-                Ethereum
-              </button>
-              <button
-                onClick={() => {
-                  const newChainId = 97741
-                  setChainId(newChainId)
-                  localStorage.setItem("selected_chain", newChainId.toString())
-                  const provider = getUnchainedProvider()
-                  provider.setChainId(newChainId)
-                }}
-                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                  chainId === 97741 ? "bg-green-500 text-black" : "bg-white/10 text-gray-400 hover:bg-white/20"
-                }`}
-              >
-                PEPU
-              </button>
-            </div>
-          </div>
+      <div className="max-w-md mx-auto px-4 pt-5 space-y-4">
 
-          {chainId === 1 && (
+        {/* ── Network toggle ── */}
+        <div
+          className="flex rounded-2xl p-1 gap-1"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          {[{ id: 1, label: "Ethereum", color: "#627eea" }, { id: 97741, label: "PEPU Chain", color: "#00ff88" }].map((n) => (
             <button
-              onClick={() => {
-                setShowAddToken(true)
-                setCustomAddress("")
-                setCustomError("")
-              }}
-              className="self-start px-4 py-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 text-sm font-semibold transition-all"
+              key={n.id}
+              onClick={() => switchChain(n.id)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={
+                chainId === n.id
+                  ? { background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.1)", color: n.color }
+                  : { color: "#6b7280" }
+              }
             >
-              + Add Custom ETH Token
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: n.color }} />
+              {n.label}
             </button>
-          )}
+          ))}
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-4">
+        {/* ── Add custom token (ETH only) ── */}
+        {chainId === 1 && (
+          <button
+            onClick={() => { setShowAddToken(true); setCustomAddress(""); setCustomError("") }}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold transition-all"
+            style={{ background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.18)", color: "#00ff88" }}
+          >
+            <Plus className="w-4 h-4" />
+            Add Custom ETH Token
+          </button>
+        )}
+
+        {/* ── Token list ── */}
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="flex flex-col items-center gap-3">
-              <Loader className="w-8 h-8 animate-spin text-green-500" />
-              <p className="text-gray-400">Loading tokens...</p>
-            </div>
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
           </div>
         ) : tokens.length === 0 ? (
-          <div className="glass-card p-12 text-center">
-            <Coins className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Tokens Found</h3>
-            <p className="text-gray-400">You don't have any tokens on this network yet</p>
+          <div
+            className="flex flex-col items-center py-16 gap-3"
+            style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 24 }}
+          >
+            <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <Coins className="w-7 h-7" style={{ color: "#374151" }} />
+            </div>
+            <p className="font-semibold" style={{ color: "#9ca3af" }}>No tokens found</p>
+            <p className="text-sm text-center px-6" style={{ color: "#4b5563" }}>
+              You don't have any tokens on this network yet
+            </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {tokens.map((token) => (
-              <div
+          <div
+            className="rounded-3xl overflow-hidden"
+            style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            {tokens.map((token, idx) => (
+              <button
                 key={token.address}
                 onClick={() => {
                   if (chainId === 97741) {
@@ -280,24 +290,22 @@ export default function TokensPage() {
                     setShowTokenModal(true)
                   }
                 }}
-                className={`glass-card p-4 flex items-center justify-between transition-all w-full ${
-                  chainId === 97741 ? "cursor-pointer hover:bg-white/10" : ""
-                }`}
+                className="w-full flex items-center gap-3 px-4 py-3.5 transition-all text-left"
+                style={{
+                  borderBottom: idx < tokens.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                  cursor: chainId === 97741 ? "pointer" : "default",
+                }}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <span className="font-bold text-green-500">{token.symbol[0]}</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold">{token.name}</p>
-                    <p className="text-xs text-gray-400">{token.symbol}</p>
-                  </div>
+                <TAvatar symbol={token.symbol} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{token.name}</p>
+                  <p className="text-xs" style={{ color: "#6b7280" }}>{token.symbol}</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold">{Number.parseFloat(token.balance).toFixed(4)}</p>
-                  <p className="text-xs text-gray-400">{token.symbol}</p>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-semibold">{Number.parseFloat(token.balance).toFixed(4)}</p>
+                  <p className="text-xs" style={{ color: "#6b7280" }}>{token.symbol}</p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -305,7 +313,7 @@ export default function TokensPage() {
 
       <BottomNav active="tokens" />
 
-      {/* Token Details Modal - Only for PEPU chain */}
+      {/* ── Token details modal (PEPU only) ── */}
       {selectedToken && chainId === 97741 && (
         <TokenDetailsModal
           tokenAddress={selectedToken.address}
@@ -313,56 +321,53 @@ export default function TokensPage() {
           tokenName={selectedToken.name}
           tokenDecimals={selectedToken.decimals}
           isOpen={showTokenModal}
-          onClose={() => {
-            setShowTokenModal(false)
-            setSelectedToken(null)
-          }}
+          onClose={() => { setShowTokenModal(false); setSelectedToken(null) }}
           chainId={chainId}
         />
       )}
 
-      {/* Add Custom Token Modal */}
+      {/* ── Add custom token modal ── */}
       {showAddToken && chainId === 1 && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="glass-card w-full max-w-md p-6 space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={() => { setShowAddToken(false); setCustomAddress(""); setCustomError("") }}
+        >
+          <div
+            className="w-full max-w-lg rounded-t-3xl p-6 space-y-5"
+            style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.1)" }}
+            onClick={e => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">Add Custom ETH Token</h2>
+              <h2 className="text-base font-bold">Add Custom ETH Token</h2>
               <button
-                onClick={() => {
-                  setShowAddToken(false)
-                  setCustomAddress("")
-                  setCustomError("")
-                }}
-                className="text-gray-400 hover:text-white"
+                onClick={() => { setShowAddToken(false); setCustomAddress(""); setCustomError("") }}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(255,255,255,0.08)" }}
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Token Contract Address</label>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold" style={{ color: "#6b7280" }}>Contract Address</label>
               <input
                 type="text"
                 value={customAddress}
-                onChange={(e) => {
-                  setCustomAddress(e.target.value)
-                  setCustomError("")
-                }}
-                placeholder="0x..."
-                className="input-field"
+                onChange={(e) => { setCustomAddress(e.target.value); setCustomError("") }}
+                placeholder="0x…"
+                className="input-field text-sm"
               />
+              {customError && (
+                <p className="text-xs" style={{ color: "#ef4444" }}>{customError}</p>
+              )}
             </div>
-
-            {customError && <p className="text-xs text-red-400">{customError}</p>}
 
             <button
               onClick={async () => {
                 try {
                   setCustomError("")
-                  if (!customAddress.trim()) {
-                    setCustomError("Enter a token contract address")
-                    return
-                  }
+                  if (!customAddress.trim()) { setCustomError("Enter a token contract address"); return }
                   addEthCustomToken(customAddress)
                   setShowAddToken(false)
                   setCustomAddress("")
@@ -371,14 +376,14 @@ export default function TokensPage() {
                   setCustomError(err.message || "Failed to add token")
                 }
               }}
-              className="w-full px-4 py-3 rounded-lg bg-green-500 text-black hover:bg-green-600 font-semibold transition-all text-sm"
+              className="w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
+              style={{ background: "#00ff88", color: "#13141a" }}
             >
               Save Token
             </button>
 
-            <p className="text-[11px] text-gray-500">
-              This token will be remembered locally and included in your ETH balances and send list, using only public
-              RPC.
+            <p className="text-xs text-center" style={{ color: "#4b5563" }}>
+              Token will be stored locally and shown in your ETH balance and send list.
             </p>
           </div>
         </div>

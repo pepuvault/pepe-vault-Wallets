@@ -1,5 +1,7 @@
 node_modules
 .next/
+.claude/
+nul
 sdk/dist/
 test-wallet-connect.html
 extension/

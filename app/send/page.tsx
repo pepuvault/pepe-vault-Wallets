@@ -11,19 +11,18 @@ import { calculateTransactionFeePepu, checkTransactionFeeBalance } from "@/lib/f
 import { getAllEthTokenBalances } from "@/lib/ethTokens"
 import { resolvePepuDomain, isPepuDomain, parseDomainInput } from "@/lib/domains"
 import { getUnchainedProvider } from "@/lib/provider"
-import { ArrowUp, Loader, ChevronDown, CheckCircle, RotateCcw, ArrowLeft, ArrowRight, X } from "lucide-react"
+import {
+  ArrowUp, Loader, ChevronDown, CheckCircle, RotateCcw,
+  ArrowLeft, X, Check, Send, Wallet,
+} from "lucide-react"
 import BottomNav from "@/components/BottomNav"
 import RpcConnectionNotification from "@/components/RpcConnectionNotification"
 import TransactionNotification from "@/components/TransactionNotification"
+import Link from "next/link"
 import { ethers } from "ethers"
 
 interface Token {
-  address: string
-  name: string
-  symbol: string
-  decimals: number
-  balance: string
-  isNative: boolean
+  address: string; name: string; symbol: string; decimals: number; balance: string; isNative: boolean
 }
 
 const ERC20_ABI = [
@@ -33,11 +32,37 @@ const ERC20_ABI = [
   "function name() view returns (string)",
 ]
 
-type SendStep = "chain" | "recipient" | "amount"
+type SendStep = "select" | "recipient" | "amount"
+
+/* ── tiny token avatar ── */
+function TAvatar({ symbol, size = 36 }: { symbol: string; size?: number }) {
+  const colors = [["#00ff88","#00cc6a"],["#3b82f6","#2563eb"],["#8b5cf6","#7c3aed"],["#f59e0b","#d97706"],["#ec4899","#db2777"]]
+  const [a, b] = colors[symbol.charCodeAt(0) % colors.length]
+  return (
+    <div className="rounded-full flex items-center justify-center font-bold text-white flex-shrink-0"
+      style={{ width: size, height: size, background: `linear-gradient(135deg,${a},${b})`, fontSize: size * 0.38 }}>
+      {symbol[0]?.toUpperCase()}
+    </div>
+  )
+}
+
+/* ── step dot indicator ── */
+function StepDots({ step }: { step: SendStep }) {
+  const steps: SendStep[] = ["select", "recipient", "amount"]
+  const idx = steps.indexOf(step)
+  return (
+    <div className="flex items-center gap-1.5">
+      {steps.map((_, i) => (
+        <div key={i} className="rounded-full transition-all"
+          style={{ width: i === idx ? 20 : 6, height: 6, background: i <= idx ? "#00ff88" : "rgba(255,255,255,0.15)" }} />
+      ))}
+    </div>
+  )
+}
 
 export default function SendPage() {
   const router = useRouter()
-  const [currentStep, setCurrentStep] = useState<SendStep>("chain")
+  const [currentStep, setCurrentStep] = useState<SendStep>("select")
   const [recipient, setRecipient] = useState("")
   const [amount, setAmount] = useState("")
   const [password, setPassword] = useState("")
@@ -68,61 +93,31 @@ export default function SendPage() {
 
   useEffect(() => {
     const wallets = getWallets()
-    if (wallets.length === 0) {
-      router.push("/setup")
-      return
-    }
-
+    if (wallets.length === 0) { router.push("/setup"); return }
     const saved = localStorage.getItem("selected_chain")
     const savedChainId = saved ? Number(saved) : 97741
-    if (savedChainId !== chainId) {
-      setChainId(savedChainId)
-    }
-
+    if (savedChainId !== chainId) setChainId(savedChainId)
     const provider = getUnchainedProvider()
     const providerChainId = provider.getChainId()
     const finalChainId = savedChainId || chainId || 97741
-    if (providerChainId !== finalChainId) {
-      provider.setChainId(finalChainId)
-    }
-    if (finalChainId !== chainId) {
-      setChainId(finalChainId)
-    }
-
+    if (providerChainId !== finalChainId) provider.setChainId(finalChainId)
+    if (finalChainId !== chainId) setChainId(finalChainId)
     updateActivity()
-    if (currentStep === "chain") {
-      loadTokens()
-    }
+    if (currentStep === "select") loadTokens()
   }, [router, chainId, currentStep])
 
   useEffect(() => {
     let retryTimeout: NodeJS.Timeout | null = null
     let isMounted = true
-
     const calculateFee = async (isRetry = false) => {
       if (!amount || !selectedToken || Number.parseFloat(amount) === 0 || currentStep !== "amount") {
-        setTransactionFee("0")
-        setFeeWarning("")
-        setFeeCalculated(true)
-        return
+        setTransactionFee("0"); setFeeWarning(""); setFeeCalculated(true); return
       }
-
-      if (chainId !== 97741) {
-        setTransactionFee("0")
-        setFeeWarning("")
-        setFeeCalculated(true)
-        return
-      }
-
+      if (chainId !== 97741) { setTransactionFee("0"); setFeeWarning(""); setFeeCalculated(true); return }
       try {
         const wallets = getWallets()
-        if (wallets.length === 0) {
-          setFeeCalculated(false)
-          return
-        }
-
+        if (wallets.length === 0) { setFeeCalculated(false); return }
         const active = getCurrentWallet() || wallets[0]
-        
         let feeAmount = "0"
         if (selectedToken.isNative) {
           feeAmount = await calculateTransactionFeePepu(amount)
@@ -131,835 +126,489 @@ export default function SendPage() {
           const feeCalc = calculateERC20TokenFee(amount, selectedToken.decimals)
           feeAmount = feeCalc.feeAmount
         }
-        
         if (!feeAmount || Number.parseFloat(feeAmount) === 0) {
-          if (isMounted) {
-            setFeeCalculated(false)
-            setTransactionFee("0")
-            setFeeWarning("")
-            retryTimeout = setTimeout(() => {
-              if (isMounted) {
-                calculateFee(true)
-              }
-            }, 5000)
-          }
+          if (isMounted) { setFeeCalculated(false); setTransactionFee("0"); setFeeWarning(""); retryTimeout = setTimeout(() => { if (isMounted) calculateFee(true) }, 5000) }
           return
         }
-
         if (isMounted) {
-          setTransactionFee(feeAmount)
-          setFeeWarning("")
-
+          setTransactionFee(feeAmount); setFeeWarning("")
           try {
-            const feeCheck = await checkTransactionFeeBalance(
-              active.address,
-              amount,
-              selectedToken.address,
-              selectedToken.decimals,
-              chainId,
-            )
-
+            const feeCheck = await checkTransactionFeeBalance(active.address, amount, selectedToken.address, selectedToken.decimals, chainId)
             if (!feeCheck.hasEnough) {
               const nativeSymbol = chainId === 1 ? "ETH" : "PEPU"
               const symbol = selectedToken.isNative ? nativeSymbol : selectedToken.symbol
-              setFeeWarning(
-                `Insufficient balance. Required: ${Number.parseFloat(feeCheck.requiredTotal).toFixed(6)} ${symbol}, Available: ${Number.parseFloat(feeCheck.currentBalance).toFixed(6)} ${symbol}`,
-              )
+              setFeeWarning(`Insufficient balance. Required: ${Number.parseFloat(feeCheck.requiredTotal).toFixed(6)} ${symbol}, Available: ${Number.parseFloat(feeCheck.currentBalance).toFixed(6)} ${symbol}`)
               setFeeCalculated(false)
-            } else {
-              setFeeWarning("")
-              setFeeCalculated(true)
-            }
+            } else { setFeeWarning(""); setFeeCalculated(true) }
           } catch (feeError: any) {
-            console.error("Error checking fee balance:", feeError)
-            // Show specific error message to user
             const errorMsg = feeError.message || "Failed to check fee balance"
-            if (errorMsg.includes("RPC") || errorMsg.includes("network")) {
-              setFeeWarning("⚠️ Network error: Unable to verify balance. Please check your connection and try again.")
-            } else {
-              setFeeWarning(`⚠️ ${errorMsg}`)
-            }
+            if (errorMsg.includes("RPC") || errorMsg.includes("network")) setFeeWarning("⚠️ Network error: Unable to verify balance.")
+            else setFeeWarning(`⚠️ ${errorMsg}`)
             setFeeCalculated(false)
-            // Still allow transaction to proceed if fee calculation succeeded
-            // The transaction will fail at send time if balance is insufficient
           }
         }
       } catch (error: any) {
-        console.error("Error calculating fee:", error)
         if (isMounted) {
           const errorMsg = error.message || "Failed to calculate fee"
-          if (errorMsg.includes("RPC") || errorMsg.includes("network") || errorMsg.includes("fetch")) {
-            setFeeWarning("⚠️ Network error: Unable to calculate fee. Please check your connection.")
-          } else {
-            setFeeWarning(`⚠️ ${errorMsg}`)
-          }
-          setFeeCalculated(false)
-          setTransactionFee("0")
-          retryTimeout = setTimeout(() => {
-            if (isMounted) {
-              calculateFee(true)
-            }
-          }, 5000)
+          if (errorMsg.includes("RPC") || errorMsg.includes("network") || errorMsg.includes("fetch")) setFeeWarning("⚠️ Network error: Unable to calculate fee.")
+          else setFeeWarning(`⚠️ ${errorMsg}`)
+          setFeeCalculated(false); setTransactionFee("0")
+          retryTimeout = setTimeout(() => { if (isMounted) calculateFee(true) }, 5000)
         }
       }
     }
-
     calculateFee()
-
-    return () => {
-      isMounted = false
-      if (retryTimeout) {
-        clearTimeout(retryTimeout)
-      }
-    }
+    return () => { isMounted = false; if (retryTimeout) clearTimeout(retryTimeout) }
   }, [amount, selectedToken, chainId, currentStep])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (tokenSelectorRef.current && !tokenSelectorRef.current.contains(event.target as Node)) {
-        setShowTokenSelector(false)
-      }
+      if (tokenSelectorRef.current && !tokenSelectorRef.current.contains(event.target as Node)) setShowTokenSelector(false)
     }
-
-    if (showTokenSelector) {
-      document.addEventListener("mousedown", handleClickOutside)
-      return () => document.removeEventListener("mousedown", handleClickOutside)
-    }
+    if (showTokenSelector) document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showTokenSelector])
 
-  // Debug: Log selectedToken changes
-  useEffect(() => {
-    if (selectedToken) {
-      console.log(`[Send] Selected token changed: ${selectedToken.symbol} (${selectedToken.name}) - isNative: ${selectedToken.isNative} - address: ${selectedToken.address}`)
-    } else {
-      console.log(`[Send] Selected token cleared`)
-    }
-  }, [selectedToken])
-
   const loadTokens = async (targetChainId?: number) => {
-    setLoadingTokens(true)
-    setTokenLoadError("")
-    
-    const timeoutId = setTimeout(() => {
-      if (loadingTokens) {
-        setTokenLoadError("Token loading timed out. Please check your RPC connection.")
-        setLoadingTokens(false)
-      }
-    }, 30000)
-    
+    setLoadingTokens(true); setTokenLoadError("")
+    const timeoutId = setTimeout(() => { setTokenLoadError("Token loading timed out."); setLoadingTokens(false) }, 30000)
     try {
       const wallets = getWallets()
-      if (wallets.length === 0) {
-        clearTimeout(timeoutId)
-        setLoadingTokens(false)
-        return
-      }
-
+      if (wallets.length === 0) { clearTimeout(timeoutId); setLoadingTokens(false); return }
       const wallet = getCurrentWallet() || wallets[0]
       const allTokens: Token[] = []
-
-      // Determine which chain's tokens to load. If an explicit targetChainId is provided,
-      // use that; otherwise fall back to the current state value.
       const effectiveChainId = targetChainId === 1 || targetChainId === 97741 ? targetChainId : chainId
       const currentChainId = effectiveChainId === 1 ? 1 : 97741
-      
       const nativeSymbol = currentChainId === 1 ? "ETH" : "PEPU"
       let nativeBalance = "0"
-      
-      try {
-        nativeBalance = await getNativeBalance(wallet.address, currentChainId)
-      } catch (error) {
-        console.error(`[Send] Error fetching native ${nativeSymbol} balance:`, error)
-      }
-      
-      const nativeToken: Token = {
-        address: "0x0000000000000000000000000000000000000000",
-        name: nativeSymbol,
-        symbol: nativeSymbol,
-        decimals: 18,
-        balance: nativeBalance,
-        isNative: true,
-      }
-      allTokens.push(nativeToken)
+      try { nativeBalance = await getNativeBalance(wallet.address, currentChainId) } catch {}
+      allTokens.push({ address: "0x0000000000000000000000000000000000000000", name: nativeSymbol, symbol: nativeSymbol, decimals: 18, balance: nativeBalance, isNative: true })
 
       if (currentChainId === 1) {
         try {
           const ethTokens = await getAllEthTokenBalances(wallet.address)
-          console.log(`[Send] Loaded ${ethTokens.length} ETH tokens from getAllEthTokenBalances`)
-          for (const ethToken of ethTokens) {
-            if (!isTokenBlacklisted(ethToken.address, currentChainId)) {
-              // Ensure symbol is preserved correctly
-              const tokenSymbol = ethToken.symbol && ethToken.symbol.trim() !== "" ? ethToken.symbol.trim() : "TOKEN"
-              console.log(`[Send] Adding ETH token: ${tokenSymbol} (${ethToken.name}) at ${ethToken.address}`)
-              allTokens.push({
-                address: ethToken.address,
-                name: ethToken.name || "Unknown Token",
-                symbol: tokenSymbol,
-                decimals: ethToken.decimals,
-                balance: ethToken.balanceFormatted,
-                isNative: false,
-              })
+          for (const t of ethTokens) {
+            if (!isTokenBlacklisted(t.address, currentChainId)) {
+              allTokens.push({ address: t.address, name: t.name || "Unknown Token", symbol: t.symbol && t.symbol.trim() !== "" ? t.symbol.trim() : "TOKEN", decimals: t.decimals, balance: t.balanceFormatted, isNative: false })
             }
           }
-        } catch (error: any) {
-          const errorMsg = error?.message || String(error) || "Unknown error"
-          if (errorMsg.includes("RPC") || errorMsg.includes("network") || errorMsg.includes("timeout") || errorMsg.includes("fetch")) {
-            setTokenLoadError(`RPC Error: Unable to load ETH tokens. ${errorMsg}`)
-          }
-        }
-        
+        } catch {}
         try {
           const customTokens = getSavedEthCustomTokens()
           if (customTokens.length > 0) {
             const provider = await getProviderWithFallback(currentChainId)
-            for (const customTokenAddress of customTokens) {
-              if (allTokens.find(t => t.address.toLowerCase() === customTokenAddress.toLowerCase())) {
-                continue
-              }
-              if (isTokenBlacklisted(customTokenAddress, currentChainId)) {
-                continue
-              }
+            for (const addr of customTokens) {
+              if (allTokens.find(t => t.address.toLowerCase() === addr.toLowerCase()) || isTokenBlacklisted(addr, currentChainId)) continue
               try {
-                const contract = new ethers.Contract(customTokenAddress, ERC20_ABI, provider)
-                const [balance, decimals, symbol, name] = await Promise.all([
-                  contract.balanceOf(wallet.address).catch(() => ethers.parseUnits("0", 18)),
-                  contract.decimals().catch(() => 18),
-                  contract.symbol().catch(() => {
-                    console.warn(`[Send] Failed to fetch symbol for custom token ${customTokenAddress}, using fallback`)
-                    return "TOKEN"
-                  }),
-                  contract.name().catch(() => {
-                    console.warn(`[Send] Failed to fetch name for custom token ${customTokenAddress}, using fallback`)
-                    return "Unknown Token"
-                  }),
-                ])
-                
-                // Ensure symbol is not empty and not "ETH" unless it's actually ETH
-                const tokenSymbol = symbol && symbol.trim() !== "" ? symbol.trim() : "TOKEN"
-                
-                const balanceFormatted = ethers.formatUnits(balance, decimals)
-                console.log(`[Send] Adding custom ETH token: ${tokenSymbol} (${name}) at ${customTokenAddress}`)
-                allTokens.push({
-                  address: customTokenAddress.toLowerCase(),
-                  name: name || "Unknown Token",
-                  symbol: tokenSymbol,
-                  decimals: Number(decimals),
-                  balance: balanceFormatted,
-                  isNative: false,
-                })
-              } catch (error) {
-                console.warn(`[Send] Error loading custom token ${customTokenAddress}:`, error)
-              }
+                const contract = new ethers.Contract(addr, ERC20_ABI, provider)
+                const [bal, dec, sym, nm] = await Promise.all([contract.balanceOf(wallet.address).catch(() => ethers.parseUnits("0", 18)), contract.decimals().catch(() => 18), contract.symbol().catch(() => "TOKEN"), contract.name().catch(() => "Unknown Token")])
+                allTokens.push({ address: addr.toLowerCase(), name: nm || "Unknown Token", symbol: sym && sym.trim() !== "" ? sym.trim() : "TOKEN", decimals: Number(dec), balance: ethers.formatUnits(bal, dec), isNative: false })
+              } catch {}
             }
           }
-        } catch (error) {
-          console.error("Error loading custom ETH tokens:", error)
-        }
+        } catch {}
       } else if (currentChainId === 97741) {
         const provider = await getProviderWithFallback(currentChainId)
         const transferTopic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
         const currentBlock = await provider.getBlockNumber()
-        const lookback = 10000
-        const fromBlock = Math.max(0, currentBlock - lookback)
-
+        const fromBlock = Math.max(0, currentBlock - 10000)
         try {
           const addressTopic = ethers.zeroPadValue(wallet.address, 32)
           const [logsFrom, logsTo] = await Promise.all([
-            provider.getLogs({
-              fromBlock,
-              toBlock: "latest",
-              topics: [transferTopic, addressTopic],
-            }),
-            provider.getLogs({
-              fromBlock,
-              toBlock: "latest",
-              topics: [transferTopic, null, addressTopic],
-            }),
+            provider.getLogs({ fromBlock, toBlock: "latest", topics: [transferTopic, addressTopic] }),
+            provider.getLogs({ fromBlock, toBlock: "latest", topics: [transferTopic, null, addressTopic] }),
           ])
-
-          const logs = [...logsFrom, ...logsTo]
-          let tokenAddresses = [...new Set(logs.map((log) => log.address.toLowerCase()))]
-          const filteredTokenAddresses = tokenAddresses.filter(
-            (addr) => !isTokenBlacklisted(addr, currentChainId)
-          )
-
-          for (const tokenAddress of filteredTokenAddresses) {
+          const tokenAddresses = [...new Set([...logsFrom, ...logsTo].map(l => l.address.toLowerCase()))].filter(a => !isTokenBlacklisted(a, currentChainId))
+          for (const tokenAddress of tokenAddresses) {
             try {
               const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider)
-              const [balance, decimals, symbol, name] = await Promise.all([
-                contract.balanceOf(wallet.address),
-                contract.decimals(),
-                contract.symbol().catch(() => {
-                  console.warn(`[Send] Failed to fetch symbol for token ${tokenAddress}, using fallback`)
-                  return "TOKEN"
-                }),
-                contract.name().catch(() => {
-                  console.warn(`[Send] Failed to fetch name for token ${tokenAddress}, using fallback`)
-                  return "Unknown Token"
-                }),
-              ])
-              
-              // Ensure symbol is not empty and not "ETH" unless it's actually ETH
-              const tokenSymbol = symbol && symbol.trim() !== "" ? symbol.trim() : "TOKEN"
-              
-              const balanceFormatted = ethers.formatUnits(balance, decimals)
-              if (Number.parseFloat(balanceFormatted) > 0) {
-                console.log(`[Send] Adding PEPU token: ${tokenSymbol} (${name}) at ${tokenAddress}`)
-                allTokens.push({
-                  address: tokenAddress,
-                  name: name || "Unknown Token",
-                  symbol: tokenSymbol,
-                  decimals: Number(decimals),
-                  balance: balanceFormatted,
-                  isNative: false,
-                })
-              }
-            } catch (error) {
-              console.error(`Error fetching token ${tokenAddress}:`, error)
-            }
+              const [bal, dec, sym, nm] = await Promise.all([contract.balanceOf(wallet.address), contract.decimals(), contract.symbol().catch(() => "TOKEN"), contract.name().catch(() => "Unknown Token")])
+              const bf = ethers.formatUnits(bal, dec)
+              if (Number.parseFloat(bf) > 0) allTokens.push({ address: tokenAddress, name: nm || "Unknown Token", symbol: sym && sym.trim() !== "" ? sym.trim() : "TOKEN", decimals: Number(dec), balance: bf, isNative: false })
+            } catch {}
           }
-        } catch (error) {
-          console.error("Error scanning for tokens:", error)
-        }
+        } catch {}
       }
 
-      console.log(`[Send] Total tokens loaded: ${allTokens.length}`)
-      allTokens.forEach((token, index) => {
-        console.log(`[Send] Token ${index + 1}: ${token.symbol} (${token.name}) - ${token.balance} - isNative: ${token.isNative} - address: ${token.address}`)
-      })
-      
       setTokens(allTokens)
       if (allTokens.length > 0) {
-        if (!selectedToken) {
-          console.log(`[Send] No selected token, setting to first: ${allTokens[0].symbol} (${allTokens[0].name})`)
-          setSelectedToken(allTokens[0])
-          setBalance(allTokens[0].balance)
-        } else {
-          const updated = allTokens.find((t) => t.address.toLowerCase() === selectedToken.address.toLowerCase())
-          if (updated) {
-            console.log(`[Send] Found updated token: ${updated.symbol} (${updated.name}) - was ${selectedToken.symbol} (${selectedToken.name})`)
-            // Ensure we preserve the correct symbol
-            if (updated.symbol && updated.symbol.trim() !== "") {
-              setSelectedToken(updated)
-              setBalance(updated.balance)
-            } else {
-              console.warn(`[Send] Updated token has empty symbol, using first token instead`)
-              setSelectedToken(allTokens[0])
-              setBalance(allTokens[0].balance)
-            }
-          } else {
-            console.log(`[Send] Selected token not found in new list, setting to first: ${allTokens[0].symbol} (${allTokens[0].name})`)
-            setSelectedToken(allTokens[0])
-            setBalance(allTokens[0].balance)
-          }
+        if (!selectedToken) { setSelectedToken(allTokens[0]); setBalance(allTokens[0].balance) }
+        else {
+          const updated = allTokens.find(t => t.address.toLowerCase() === selectedToken.address.toLowerCase())
+          if (updated && updated.symbol && updated.symbol.trim() !== "") { setSelectedToken(updated); setBalance(updated.balance) }
+          else { setSelectedToken(allTokens[0]); setBalance(allTokens[0].balance) }
         }
-      } else {
-        setSelectedToken(null)
-        setBalance("0")
-      }
-      
+      } else { setSelectedToken(null); setBalance("0") }
       clearTimeout(timeoutId)
     } catch (error: any) {
-      console.error("Error loading tokens:", error)
-      const errorMsg = error?.message || String(error) || "Unknown error"
-      if (errorMsg.includes("RPC") || errorMsg.includes("network") || errorMsg.includes("timeout") || errorMsg.includes("fetch")) {
-        setTokenLoadError(`RPC Error: Unable to load tokens. ${errorMsg}`)
-      } else {
-        setTokenLoadError(`Error loading tokens: ${errorMsg}`)
-      }
-    } finally {
-      clearTimeout(timeoutId)
-      setLoadingTokens(false)
-    }
+      const msg = error?.message || String(error)
+      setTokenLoadError(`Error loading tokens: ${msg}`)
+    } finally { clearTimeout(timeoutId); setLoadingTokens(false) }
   }
 
   const handleNext = () => {
-    if (currentStep === "chain") {
-      if (!selectedToken) {
-        setError("Please select a token")
-        return
-      }
-      setCurrentStep("recipient")
-      setError("")
+    if (currentStep === "select") {
+      if (!selectedToken) { setError("Please select a token"); return }
+      setCurrentStep("recipient"); setError("")
     } else if (currentStep === "recipient") {
-      if (!recipient.trim()) {
-        setError("Please enter a recipient address")
-        return
-      }
-      
-      // Validate recipient
+      if (!recipient.trim()) { setError("Please enter a recipient address"); return }
       let finalRecipient = recipient.trim()
       if (chainId === 97741 && isPepuDomain(recipient)) {
-        if (resolvedAddress) {
-          finalRecipient = resolvedAddress
-        } else {
-          setError("Please wait for domain resolution or enter a valid address")
-          return
-        }
+        if (resolvedAddress) finalRecipient = resolvedAddress
+        else { setError("Please wait for domain resolution or enter a valid address"); return }
       }
-      
-      if (!ethers.isAddress(finalRecipient)) {
-        setError("Invalid recipient address")
-        return
-      }
-      
-      setCurrentStep("amount")
-      setError("")
+      if (!ethers.isAddress(finalRecipient)) { setError("Invalid recipient address"); return }
+      setCurrentStep("amount"); setError("")
     }
   }
 
   const handleBack = () => {
-    if (currentStep === "recipient") {
-      setCurrentStep("chain")
-      setError("")
-    } else if (currentStep === "amount") {
-      setCurrentStep("recipient")
-      setError("")
-    }
+    if (currentStep === "recipient") { setCurrentStep("select"); setError("") }
+    else if (currentStep === "amount") { setCurrentStep("recipient"); setError("") }
   }
 
   const handleSend = async () => {
     setError("")
-
-    if (!recipient || !amount || !password || !selectedToken) {
-      setError("Please fill in all fields")
-      return
-    }
-
+    if (!recipient || !amount || !password || !selectedToken) { setError("Please fill in all fields"); return }
     let finalRecipient = recipient.trim()
     if (chainId === 97741 && isPepuDomain(recipient)) {
-      if (resolvedAddress) {
-        finalRecipient = resolvedAddress
-      } else {
+      if (resolvedAddress) finalRecipient = resolvedAddress
+      else {
         const parsed = parseDomainInput(recipient)
         if (parsed && parsed.tld) {
           const address = await resolvePepuDomain(parsed.name, parsed.tld)
-          if (address) {
-            finalRecipient = address
-          } else {
-            setError("Domain not found or expired")
-            return
-          }
-        } else {
-          setError("Invalid domain format - must include .pepu or .uchain")
-          return
-        }
+          if (address) finalRecipient = address
+          else { setError("Domain not found or expired"); return }
+        } else { setError("Invalid domain format"); return }
       }
     }
-
-    if (!ethers.isAddress(finalRecipient)) {
-      setError("Invalid recipient address")
-      return
-    }
-
-    if (Number.parseFloat(amount) > Number.parseFloat(balance)) {
-      setError("Insufficient balance")
-      return
-    }
-
+    if (!ethers.isAddress(finalRecipient)) { setError("Invalid recipient address"); return }
+    if (Number.parseFloat(amount) > Number.parseFloat(balance)) { setError("Insufficient balance"); return }
     setLoading(true)
     try {
       const wallets = getWallets()
       if (wallets.length === 0) throw new Error("No wallet found")
-
       const active = getCurrentWallet() || wallets[0]
-
       let txHash: string
-      if (selectedToken.isNative) {
-        txHash = await sendNativeToken(active, password, finalRecipient, amount, chainId)
-      } else {
-        txHash = await sendToken(active, password, selectedToken.address, finalRecipient, amount, chainId)
-      }
-
-      const explorerUrl = chainId === 1 
-        ? `https://etherscan.io/tx/${txHash}`
-        : `https://pepuscan.com/tx/${txHash}`
+      if (selectedToken.isNative) txHash = await sendNativeToken(active, password, finalRecipient, amount, chainId)
+      else txHash = await sendToken(active, password, selectedToken.address, finalRecipient, amount, chainId)
+      const explorerUrl = chainId === 1 ? `https://etherscan.io/tx/${txHash}` : `https://pepuscan.com/tx/${txHash}`
       const txHistory = JSON.parse(localStorage.getItem("transaction_history") || "[]")
-      txHistory.unshift({
-        hash: txHash,
-        type: "send",
-        to: recipient,
-        amount,
-        token: selectedToken.symbol,
-        chainId,
-        timestamp: Date.now(),
-        explorerUrl,
-      })
+      txHistory.unshift({ hash: txHash, type: "send", to: recipient, amount, token: selectedToken.symbol, chainId, timestamp: Date.now(), explorerUrl })
       localStorage.setItem("transaction_history", JSON.stringify(txHistory.slice(0, 100)))
-
-      // Show notification
-      setNotificationData({
-        message: `Transaction sent successfully!`,
-        txHash,
-        explorerUrl,
-      })
+      setNotificationData({ message: "Transaction sent successfully!", txHash, explorerUrl })
       setShowNotification(true)
-
-      setRecipient("")
-      setAmount("")
-      setPassword("")
-      setCurrentStep("chain")
+      setRecipient(""); setAmount(""); setPassword(""); setCurrentStep("select")
       await loadTokens()
-
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 2000)
-    } catch (err: any) {
-      setError(err.message || "Transaction failed")
-    } finally {
-      setLoading(false)
-    }
+      setTimeout(() => router.push("/dashboard"), 2000)
+    } catch (err: any) { setError(err.message || "Transaction failed") }
+    finally { setLoading(false) }
   }
 
   const handleChainSwitch = async (newChainId: number) => {
-    console.log(`[Send] Switching to ${newChainId === 1 ? 'ETH' : 'PEPU'} chain`)
-    setChainId(newChainId)
-    setSelectedToken(null)
-    setTokens([])
-    setBalance("0")
+    setChainId(newChainId); setSelectedToken(null); setTokens([]); setBalance("0")
     localStorage.setItem("selected_chain", newChainId.toString())
     localStorage.setItem("unchained_chain_id", newChainId.toString())
-    const provider = getUnchainedProvider()
-    provider.setChainId(newChainId)
-    // Load tokens explicitly for the newly selected chain to avoid race conditions
+    const provider = getUnchainedProvider(); provider.setChainId(newChainId)
     void loadTokens(newChainId)
   }
 
+  /* ─── UI ─── */
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
+    <div className="min-h-screen pb-28 text-white" style={{ background: "#13141a" }}>
       <RpcConnectionNotification chainId={chainId} />
       {showNotification && notificationData && (
         <TransactionNotification
           message={notificationData.message}
           txHash={notificationData.txHash}
           explorerUrl={notificationData.explorerUrl}
-          onClose={() => {
-            setShowNotification(false)
-            setNotificationData(null)
-          }}
+          onClose={() => { setShowNotification(false); setNotificationData(null) }}
           duration={10000}
         />
       )}
-      
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="glass-card rounded-none p-6 border-b border-white/10 sticky top-0">
-          <div className="flex items-center gap-3">
-            {currentStep !== "chain" && (
-              <button
-                onClick={handleBack}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-            )}
-            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-              <ArrowUp className="w-5 h-5 text-green-500" />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold">Send Tokens</h1>
-              <p className="text-sm text-gray-400">
-                {currentStep === "chain" && "Select network and token"}
-                {currentStep === "recipient" && "Enter recipient address"}
-                {currentStep === "amount" && "Enter amount and confirm"}
-              </p>
-            </div>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-            >
-              <X className="w-5 h-5" />
+
+      {/* ── Header ── */}
+      <div
+        className="sticky top-0 z-40 px-5 py-4"
+        style={{ background: "rgba(19,20,26,0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <div className="flex items-center gap-3">
+          {currentStep !== "select" ? (
+            <button onClick={handleBack} className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <ArrowLeft className="w-4 h-4" />
             </button>
+          ) : (
+            <Link href="/dashboard" className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+          )}
+          <div className="flex-1">
+            <h1 className="text-base font-bold">Send</h1>
+            <p className="text-xs" style={{ color: "#6b7280" }}>
+              {currentStep === "select" && "Select token"}
+              {currentStep === "recipient" && "Enter recipient"}
+              {currentStep === "amount" && "Enter amount"}
+            </p>
           </div>
-          
-          {/* Progress Steps */}
-          <div className="flex items-center gap-2 mt-4">
-            <div className={`flex-1 h-1 rounded-full ${currentStep === "chain" ? "bg-green-500" : "bg-green-500"}`} />
-            <div className={`flex-1 h-1 rounded-full ${currentStep === "recipient" || currentStep === "amount" ? "bg-green-500" : "bg-white/10"}`} />
-            <div className={`flex-1 h-1 rounded-full ${currentStep === "amount" ? "bg-green-500" : "bg-white/10"}`} />
-          </div>
+          <StepDots step={currentStep} />
         </div>
+      </div>
 
-        {/* Step Content */}
-        <div className="p-4 md:p-8 space-y-6">
-          {/* Step 1: Chain & Token Selection */}
-          {currentStep === "chain" && (
-            <>
-              <div>
-                <label className="block text-sm text-gray-400 mb-3">Network</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleChainSwitch(1)}
-                    className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
-                      chainId === 1 ? "bg-green-500 text-black" : "bg-white/10 text-gray-400 hover:bg-white/20"
-                    }`}
-                  >
-                    Ethereum
-                  </button>
-                  <button
-                    onClick={() => handleChainSwitch(97741)}
-                    className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
-                      chainId === 97741 ? "bg-green-500 text-black" : "bg-white/10 text-gray-400 hover:bg-white/20"
-                    }`}
-                  >
-                    PEPU
-                  </button>
-                </div>
-              </div>
+      <div className="max-w-md mx-auto px-5 pt-6 space-y-4">
 
-              <div ref={tokenSelectorRef}>
-                <label className="block text-sm text-gray-400 mb-2">Select Token</label>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowTokenSelector(!showTokenSelector)}
-                    className="input-field flex items-center justify-between cursor-pointer w-full"
-                    disabled={loadingTokens}
-                  >
-                    <span>
-                      {loadingTokens
-                        ? "Loading tokens..."
-                        : tokenLoadError
-                          ? "Error loading tokens"
-                          : selectedToken
-                            ? `${selectedToken.symbol} - ${selectedToken.name}`
-                            : "Select Token"}
-                    </span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${showTokenSelector ? "rotate-180" : ""}`} />
-                  </button>
-                  {showTokenSelector && !loadingTokens && (
-                    <div className="absolute z-50 w-full mt-2 glass-card max-h-60 overflow-y-auto border border-white/20">
-                      <div className="p-2">
-                        {tokenLoadError ? (
-                          <div className="p-4">
-                            <div className="text-red-400 text-sm mb-2">{tokenLoadError}</div>
-                            <button
-                              onClick={() => {
-                                setTokenLoadError("")
-                                loadTokens()
-                              }}
-                              className="text-xs text-green-400 hover:text-green-300 underline"
-                            >
-                              Retry
-                            </button>
-                          </div>
-                        ) : tokens.length === 0 ? (
-                          <div className="p-4 text-center text-gray-400">No tokens found</div>
-                        ) : (
-                          tokens.map((token) => (
-                            <button
-                              key={token.address}
-                              onClick={() => {
-                                console.log(`[Send] User selected token: ${token.symbol} (${token.name}) at ${token.address}`)
-                                // Ensure token has valid symbol before selecting
-                                if (!token.symbol || token.symbol.trim() === "") {
-                                  console.error(`[Send] Token has empty symbol, cannot select: ${token.address}`)
-                                  setError("Token symbol is missing. Please try again.")
-                                  return
-                                }
-                                setSelectedToken(token)
-                                setBalance(token.balance)
-                                setShowTokenSelector(false)
-                              }}
-                              className="w-full text-left p-3 rounded-lg hover:bg-white/10 transition-colors"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-semibold">{token.symbol || "TOKEN"}</p>
-                                  <p className="text-xs text-gray-400">{token.name || "Unknown Token"}</p>
-                                </div>
-                                <p className="text-sm text-green-400">{Number.parseFloat(token.balance).toFixed(4)}</p>
-                              </div>
-                            </button>
-                          ))
-                        )}
-                      </div>
+        {/* ── STEP 1: Token & chain ── */}
+        {currentStep === "select" && (
+          <>
+            {/* Chain toggle */}
+            <div
+              className="flex rounded-2xl p-1 gap-1"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+            >
+              {[{ id: 1, label: "Ethereum", color: "#627eea" }, { id: 97741, label: "PEPU", color: "#00ff88" }].map(n => (
+                <button key={n.id} onClick={() => handleChainSwitch(n.id)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                  style={chainId === n.id ? { background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.1)", color: n.color } : { color: "#6b7280" }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: n.color }} />{n.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Token selector */}
+            <div ref={tokenSelectorRef} className="relative">
+              <p className="text-xs font-semibold mb-2" style={{ color: "#6b7280" }}>Select Token</p>
+              <button
+                onClick={() => setShowTokenSelector(!showTokenSelector)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all"
+                style={{ background: "#1a1d2e", border: `1px solid ${showTokenSelector ? "rgba(0,255,136,0.4)" : "rgba(255,255,255,0.08)"}` }}
+                disabled={loadingTokens}
+              >
+                {loadingTokens ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Loader className="w-5 h-5 animate-spin" style={{ color: "#00ff88" }} />
+                    <span className="text-sm" style={{ color: "#6b7280" }}>Loading tokens…</span>
+                  </div>
+                ) : selectedToken ? (
+                  <>
+                    <TAvatar symbol={selectedToken.symbol} />
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-semibold">{selectedToken.symbol}</p>
+                      <p className="text-xs" style={{ color: "#6b7280" }}>{Number.parseFloat(selectedToken.balance).toFixed(4)} available</p>
                     </div>
+                  </>
+                ) : (
+                  <span className="flex-1 text-left text-sm" style={{ color: "#6b7280" }}>
+                    {tokenLoadError ? "Error loading tokens" : "Pick a token"}
+                  </span>
+                )}
+                <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform" style={{ color: "#6b7280", transform: showTokenSelector ? "rotate(180deg)" : "" }} />
+              </button>
+
+              {showTokenSelector && !loadingTokens && (
+                <div
+                  className="absolute z-50 w-full mt-2 rounded-2xl overflow-hidden shadow-2xl"
+                  style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.1)", maxHeight: 280, overflowY: "auto" }}
+                >
+                  {tokenLoadError ? (
+                    <div className="p-4">
+                      <p className="text-sm mb-2" style={{ color: "#ef4444" }}>{tokenLoadError}</p>
+                      <button onClick={() => { setTokenLoadError(""); loadTokens() }} className="text-xs underline" style={{ color: "#00ff88" }}>Retry</button>
+                    </div>
+                  ) : tokens.length === 0 ? (
+                    <div className="p-4 text-center text-sm" style={{ color: "#6b7280" }}>No tokens found</div>
+                  ) : (
+                    tokens.map(token => (
+                      <button key={token.address}
+                        onClick={() => { if (!token.symbol || token.symbol.trim() === "") { setError("Token symbol missing"); return } setSelectedToken(token); setBalance(token.balance); setShowTokenSelector(false) }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5"
+                        style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                      >
+                        <TAvatar symbol={token.symbol || "?"} />
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold">{token.symbol || "TOKEN"}</p>
+                          <p className="text-xs" style={{ color: "#6b7280" }}>{token.name || "Unknown Token"}</p>
+                        </div>
+                        <p className="text-sm font-semibold" style={{ color: "#00ff88" }}>{Number.parseFloat(token.balance).toFixed(4)}</p>
+                      </button>
+                    ))
                   )}
                 </div>
-                {selectedToken && (
-                  <p className="text-xs text-gray-400 mt-2">
-                    Balance: {Number.parseFloat(balance).toFixed(4)} {selectedToken.symbol}
-                  </p>
-                )}
-              </div>
-
-              <button
-                onClick={handleNext}
-                disabled={!selectedToken || loadingTokens}
-                className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                Continue
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </>
-          )}
-
-          {/* Step 2: Recipient */}
-          {currentStep === "recipient" && (
-            <>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">
-                  Recipient Address {chainId === 97741 && <span className="text-green-400">or .pepu domain</span>}
-                </label>
-                <input
-                  type="text"
-                  value={recipient}
-                  onChange={async (e) => {
-                    const value = e.target.value.trim()
-                    setRecipient(value)
-                    setResolvedAddress("")
-                    setDomainInput("")
-                    setError("")
-                    
-                    // Only resolve domains on PEPU chain
-                    if (chainId === 97741 && isPepuDomain(value)) {
-                      setResolvingDomain(true)
-                      const parsed = parseDomainInput(value)
-                      if (parsed && parsed.tld) {
-                        setDomainInput(`${parsed.name}${parsed.tld}`)
-                        const address = await resolvePepuDomain(parsed.name, parsed.tld)
-                        if (address) {
-                          setResolvedAddress(address)
-                        } else {
-                          setResolvedAddress("")
-                        }
-                      } else {
-                        setResolvedAddress("")
-                        setDomainInput("")
-                      }
-                      setResolvingDomain(false)
-                    }
-                  }}
-                  placeholder={chainId === 97741 ? "0x... or teck.pepu" : "0x..."}
-                  className="input-field"
-                />
-                {resolvingDomain && (
-                  <p className="text-xs text-gray-400 mt-1 flex items-center gap-2">
-                    <Loader className="w-3 h-3 animate-spin" />
-                    Resolving domain...
-                  </p>
-                )}
-                {resolvedAddress && domainInput && (
-                  <div className="mt-2 glass-card p-3 border border-green-500/30 bg-green-500/10">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                      <div className="flex-1">
-                        <p className="text-xs text-gray-400">Domain: {domainInput}</p>
-                        <p className="text-sm text-green-400 font-mono break-all">{resolvedAddress}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {recipient && isPepuDomain(recipient) && !resolvedAddress && !resolvingDomain && chainId === 97741 && (
-                  <p className="text-xs text-red-400 mt-1">Domain not found or expired</p>
-                )}
-                {chainId === 1 && isPepuDomain(recipient) && (
-                  <p className="text-xs text-red-400 mt-1">.pepu domains only work on PEPU chain</p>
-                )}
-              </div>
-
-              {error && (
-                <div className="glass-card p-4 border border-red-500/50 bg-red-500/10">
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
               )}
+            </div>
 
-              <button
-                onClick={handleNext}
-                disabled={!recipient.trim() || (chainId === 97741 && isPepuDomain(recipient) && !resolvedAddress)}
-                className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                Continue
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </>
-          )}
+            {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
 
-          {/* Step 3: Amount & Password */}
-          {currentStep === "amount" && (
-            <>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Amount</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0.0"
-                    className="input-field flex-1"
-                    step="0.0001"
-                  />
-                  <button
-                    onClick={() => setAmount(balance)}
-                    className="px-4 py-3 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 font-semibold whitespace-nowrap"
-                  >
-                    MAX
-                  </button>
+            <button
+              onClick={handleNext}
+              disabled={!selectedToken || loadingTokens}
+              className="btn-primary w-full disabled:opacity-40"
+            >
+              Continue
+            </button>
+          </>
+        )}
+
+        {/* ── STEP 2: Recipient ── */}
+        {currentStep === "recipient" && (
+          <>
+            {/* selected token badge */}
+            {selectedToken && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <TAvatar symbol={selectedToken.symbol} />
+                <div>
+                  <p className="text-sm font-semibold">{selectedToken.symbol}</p>
+                  <p className="text-xs" style={{ color: "#6b7280" }}>Balance: {Number.parseFloat(balance).toFixed(6)}</p>
                 </div>
-                <p className="text-xs text-gray-400 mt-2">
-                  Balance: {Number.parseFloat(balance).toFixed(4)} {selectedToken?.symbol || ""}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold mb-2" style={{ color: "#6b7280" }}>
+                Recipient {chainId === 97741 && <span style={{ color: "#00ff88" }}>· .pepu domains supported</span>}
+              </label>
+              <textarea
+                value={recipient}
+                onChange={async (e) => {
+                  const value = e.target.value.trim()
+                  setRecipient(value); setResolvedAddress(""); setDomainInput(""); setError("")
+                  if (chainId === 97741 && isPepuDomain(value)) {
+                    setResolvingDomain(true)
+                    const parsed = parseDomainInput(value)
+                    if (parsed && parsed.tld) {
+                      setDomainInput(`${parsed.name}${parsed.tld}`)
+                      const address = await resolvePepuDomain(parsed.name, parsed.tld)
+                      if (address) setResolvedAddress(address)
+                      else setResolvedAddress("")
+                    } else { setResolvedAddress(""); setDomainInput("") }
+                    setResolvingDomain(false)
+                  }
+                }}
+                placeholder={chainId === 97741 ? "0x… or name.pepu" : "0x…"}
+                rows={2}
+                className="input-field resize-none font-mono text-sm"
+              />
+              {resolvingDomain && (
+                <p className="flex items-center gap-1.5 text-xs mt-1" style={{ color: "#6b7280" }}>
+                  <Loader className="w-3 h-3 animate-spin" /> Resolving domain…
                 </p>
-              </div>
-
-              {feeWarning && chainId === 97741 && feeWarning.includes("Insufficient balance") && (
-                <div className="glass-card p-4 border border-red-500/50 bg-red-500/10">
-                  <p className="text-red-400 text-sm">{feeWarning}</p>
+              )}
+              {resolvedAddress && domainInput && (
+                <div className="mt-2 flex items-start gap-2 p-3 rounded-xl" style={{ background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.2)" }}>
+                  <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#00ff88" }} />
+                  <div>
+                    <p className="text-xs" style={{ color: "#6b7280" }}>{domainInput}</p>
+                    <p className="text-sm font-mono" style={{ color: "#00ff88" }}>{resolvedAddress}</p>
+                  </div>
                 </div>
               )}
+              {recipient && isPepuDomain(recipient) && !resolvedAddress && !resolvingDomain && chainId === 97741 && (
+                <p className="text-xs mt-1" style={{ color: "#ef4444" }}>Domain not found or expired</p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Password</label>
+            {error && <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>}
+
+            <button
+              onClick={handleNext}
+              disabled={!recipient.trim() || (chainId === 97741 && isPepuDomain(recipient) && !resolvedAddress)}
+              className="btn-primary w-full disabled:opacity-40"
+            >
+              Continue
+            </button>
+          </>
+        )}
+
+        {/* ── STEP 3: Amount ── */}
+        {currentStep === "amount" && (
+          <>
+            {/* summary card */}
+            <div className="p-4 rounded-2xl space-y-3" style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: "#6b7280" }}>Token</span>
+                <div className="flex items-center gap-2">
+                  <TAvatar symbol={selectedToken?.symbol || "?"} size={22} />
+                  <span className="text-sm font-semibold">{selectedToken?.symbol}</span>
+                </div>
+              </div>
+              <div className="flex items-start justify-between">
+                <span className="text-xs" style={{ color: "#6b7280" }}>To</span>
+                <span className="text-xs font-mono text-right max-w-[60%] break-all" style={{ color: "#9ca3af" }}>
+                  {resolvedAddress || recipient}
+                </span>
+              </div>
+            </div>
+
+            {/* amount input */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold" style={{ color: "#6b7280" }}>Amount</label>
+                <span className="text-xs" style={{ color: "#6b7280" }}>
+                  Balance: <span style={{ color: "#00ff88" }}>{Number.parseFloat(balance).toFixed(4)}</span> {selectedToken?.symbol}
+                </span>
+              </div>
+              <div className="relative">
                 <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="input-field"
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  step="0.0001"
+                  className="input-field pr-16 text-lg font-bold"
                 />
                 <button
-                  type="button"
-                  onClick={() => {
-                    if (confirmWalletReset()) {
-                      clearAllWallets()
-                      router.push("/setup")
-                    }
-                  }}
-                  className="mt-2 text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+                  onClick={() => setAmount(balance)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg text-xs font-bold transition-colors"
+                  style={{ background: "rgba(0,255,136,0.12)", color: "#00ff88" }}
                 >
-                  <RotateCcw className="w-3 h-3" />
-                  Forgot Password? Reset Wallet
+                  MAX
                 </button>
               </div>
+            </div>
 
-              {error && (
-                <div className="glass-card p-4 border border-red-500/50 bg-red-500/10">
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
-              )}
+            {feeWarning && chainId === 97741 && feeWarning.includes("Insufficient") && (
+              <div className="p-3 rounded-xl flex items-start gap-2" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                <X className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#ef4444" }} />
+                <p className="text-xs" style={{ color: "#ef4444" }}>{feeWarning}</p>
+              </div>
+            )}
 
+            {/* password */}
+            <div>
+              <label className="block text-xs font-semibold mb-2" style={{ color: "#6b7280" }}>Enter PIN to confirm</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••"
+                maxLength={4}
+                className="input-field"
+              />
               <button
-                onClick={handleSend}
-                disabled={
-                  loading || 
-                  !recipient || 
-                  !amount || 
-                  !password || 
-                  !selectedToken ||
-                  (chainId === 97741 && !feeCalculated)
-                }
-                className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
+                type="button"
+                onClick={() => { if (confirmWalletReset()) { clearAllWallets(); router.push("/setup") } }}
+                className="mt-1.5 flex items-center gap-1 text-xs transition-colors"
+                style={{ color: "#4b5563" }}
               >
-                {loading && <Loader className="w-4 h-4 animate-spin" />}
-                {loading 
-                  ? "Sending..." 
-                  : chainId === 97741 && !feeCalculated
-                  ? "Preparing..."
-                  : `Send ${selectedToken?.symbol || ""}`
-                }
+                <RotateCcw className="w-3 h-3" /> Forgot PIN? Reset Wallet
               </button>
-            </>
-          )}
-        </div>
+            </div>
+
+            {error && (
+              <div className="p-3 rounded-xl flex items-start gap-2" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                <X className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#ef4444" }} />
+                <p className="text-xs" style={{ color: "#ef4444" }}>{error}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleSend}
+              disabled={loading || !recipient || !amount || !password || !selectedToken || (chainId === 97741 && !feeCalculated)}
+              className="btn-primary w-full disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {loading ? "Sending…" : chainId === 97741 && !feeCalculated ? "Preparing…" : `Send ${selectedToken?.symbol || ""}`}
+            </button>
+          </>
+        )}
       </div>
 
       <BottomNav active="send" />
