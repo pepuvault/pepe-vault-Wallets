@@ -203,8 +203,7 @@ export default function TokensPage() {
       >
         <Link
           href="/dashboard"
-          className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
-          style={{ background: "rgba(255,255,255,0.06)" }}
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors flex-shrink-0 btn-icon"
         >
           <ArrowLeft className="w-4 h-4" />
         </Link>
@@ -215,8 +214,7 @@ export default function TokensPage() {
         <button
           onClick={fetchAllTokens}
           disabled={loading}
-          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
-          style={{ background: "rgba(255,255,255,0.06)" }}
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all btn-icon"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} style={{ color: "#9ca3af" }} />
         </button>

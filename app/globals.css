@@ -63,21 +63,48 @@
     box-sizing: border-box;
   }
 
-  html, body {
+  html {
+    height: 100%;
+    min-height: 100dvh;
+  }
+
+  body {
     background-color: var(--bg-base);
     color: var(--text-white);
     height: 100%;
+    min-height: 100dvh;
     width: 100%;
+    min-width: 100%;
     margin: 0;
     padding: 0;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     scroll-behavior: smooth;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-top: env(safe-area-inset-top);
   }
 
   #__next {
     min-height: 100vh;
+    min-height: 100dvh;
     width: 100%;
+  }
+
+  .page-container {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100dvh;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  @media (min-width: 768px) {
+    .page-container {
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
   }
 }
 
@@ -105,16 +132,16 @@
     font-size: 15px;
     background: var(--accent);
     color: var(--bg-base);
-    border: none;
+    border: 1px solid rgba(0,255,136,0.4);
     cursor: pointer;
     transition: all 0.15s ease;
-    box-shadow: 0 4px 20px rgba(0,255,136,0.2);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     letter-spacing: 0.01em;
   }
 
   .btn-primary:hover {
     background: var(--accent-dark);
-    box-shadow: 0 4px 28px rgba(0,255,136,0.35);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
     transform: translateY(-1px);
   }
 
@@ -137,16 +164,16 @@
     border-radius: 16px;
     font-weight: 600;
     font-size: 14px;
-    background: rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.12);
     color: var(--text-primary);
-    border: 1px solid var(--border);
+    border: 1px solid rgba(255,255,255,0.2);
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .btn-secondary:hover {
-    background: rgba(255,255,255,0.10);
-    border-color: var(--border-light);
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.28);
   }
 
   .btn-secondary:active {
@@ -172,6 +199,16 @@
     background: rgba(239,68,68,0.2);
   }
 
+  .btn-icon {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+
+  .btn-icon:hover {
+    background: rgba(255,255,255,0.16);
+    border-color: rgba(255,255,255,0.25);
+  }
+
   /* ── Input ── */
   .input-field {
     width: 100%;
@@ -190,8 +227,8 @@
   }
 
   .input-field:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(0,255,136,0.12);
+    border-color: rgba(255,255,255,0.25);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
   }
 
   /* ── Select ── */
@@ -215,8 +252,8 @@
   }
 
   .fancy-select:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(0,255,136,0.12);
+    border-color: rgba(255,255,255,0.25);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
   }
 
   .fancy-select option {

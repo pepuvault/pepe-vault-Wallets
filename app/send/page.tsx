@@ -334,11 +334,11 @@ export default function SendPage() {
       >
         <div className="flex items-center gap-3">
           {currentStep !== "select" ? (
-            <button onClick={handleBack} className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <button onClick={handleBack} className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors btn-icon">
               <ArrowLeft className="w-4 h-4" />
             </button>
           ) : (
-            <Link href="/dashboard" className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <Link href="/dashboard" className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors btn-icon">
               <ArrowLeft className="w-4 h-4" />
             </Link>
           )}

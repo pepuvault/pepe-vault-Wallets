@@ -33,12 +33,12 @@ export default function BottomNav({ active }: BottomNavProps) {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50"
+      className="fixed bottom-0 left-0 right-0 z-50 md:left-1/2 md:-translate-x-1/2 md:max-w-[480px] md:rounded-t-2xl"
       style={{
         background: "rgba(19, 20, 26, 0.95)",
         backdropFilter: "blur(20px)",
         borderTop: "1px solid rgba(255,255,255,0.08)",
-        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingBottom: "max(env(safe-area-inset-bottom), 8px)",
       }}
     >
       <div className="max-w-2xl mx-auto flex items-center justify-between px-3 py-2 gap-1">
@@ -48,7 +48,7 @@ export default function BottomNav({ active }: BottomNavProps) {
             <Link
               key={id}
               href={href}
-              className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl transition-all relative flex-1 min-w-0 max-w-[72px]"
+              className="flex flex-col items-center justify-center gap-1 px-2 py-3 min-h-[56px] sm:py-2 sm:min-h-[48px] rounded-xl transition-all relative flex-1 min-w-0 max-w-[72px] touch-manipulation"
               style={{
                 color: isActive ? "#00ff88" : "#6b7280",
               }}
@@ -65,7 +65,6 @@ export default function BottomNav({ active }: BottomNavProps) {
                   width: 22,
                   height: 22,
                   strokeWidth: isActive ? 2.5 : 1.75,
-                  filter: isActive ? "drop-shadow(0 0 6px rgba(0,255,136,0.5))" : "none",
                 }}
               />
               <span

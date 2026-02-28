@@ -1,10 +1,17 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Geist } from "next/font/google"
 import { AppProviders } from "@/components/AppProviders"
 import "./globals.css"
 
 const geist = Geist({ subsets: ["latin"] })
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+}
 
 export const metadata: Metadata = {
   title: "PEPU VAULT",
@@ -29,9 +36,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className="h-full">
-      <body className={`${geist.className} bg-black text-white h-full w-full`}>
-        <AppProviders>{children}</AppProviders>
+      <html lang="en" suppressHydrationWarning className="h-full">
+      <body className={`${geist.className} bg-black text-white h-full w-full min-h-[100dvh] flex flex-col items-center md:py-8 md:min-h-screen md:justify-center`}>
+        <AppProviders>
+          <div className="w-full min-h-[100dvh] flex flex-col md:max-w-[480px] md:min-h-[700px] md:rounded-2xl md:overflow-hidden md:shadow-2xl md:border md:border-white/10 md:relative">
+            {children}
+          </div>
+        </AppProviders>
       </body>
     </html>
   )
