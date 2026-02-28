@@ -152,7 +152,7 @@ export default function SetupPage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full px-4">
         {/* Logo - PEPU VAULT */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">

@@ -289,7 +289,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4">
+      <div className="w-full px-4 sm:px-6">
 
         {/* ── Wallet card ── */}
         {activeWallet && (

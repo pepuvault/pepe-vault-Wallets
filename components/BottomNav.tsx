@@ -33,7 +33,7 @@ export default function BottomNav({ active }: BottomNavProps) {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 md:left-1/2 md:-translate-x-1/2 md:max-w-[480px] md:rounded-t-2xl"
+      className="fixed bottom-0 left-0 right-0 z-50"
       style={{
         background: "rgba(19, 20, 26, 0.95)",
         backdropFilter: "blur(20px)",
@@ -41,7 +41,7 @@ export default function BottomNav({ active }: BottomNavProps) {
         paddingBottom: "max(env(safe-area-inset-bottom), 8px)",
       }}
     >
-      <div className="max-w-2xl mx-auto flex items-center justify-between px-3 py-2 gap-1">
+      <div className="w-full flex items-center justify-between px-3 sm:px-4 py-2 gap-1">
         {tabs.map(({ id, label, href, icon: Icon }) => {
           const isActive = currentPage === id
           return (

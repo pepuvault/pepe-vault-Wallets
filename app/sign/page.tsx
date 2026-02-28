@@ -589,7 +589,7 @@ export default function SignPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
       {/* Header */}
       <div className="bg-black/50 backdrop-blur-xl border-b border-white/10 p-4 sticky top-0 z-50">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+        <div className="w-full flex items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-blue-500 flex items-center justify-center shadow-lg">
               <Shield className="w-6 h-6 text-white" />
@@ -625,7 +625,7 @@ export default function SignPage() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto p-6 space-y-4">
+      <div className="w-full px-4 sm:px-6 py-6 space-y-4">
         {/* Risk Warning */}
         {riskLevel === "high" && (
           <div className="bg-red-500/10 border-2 border-red-500/30 rounded-xl p-4 flex items-start gap-3 animate-pulse">

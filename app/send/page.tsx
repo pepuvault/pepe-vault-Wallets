@@ -354,7 +354,7 @@ export default function SendPage() {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-5 pt-6 space-y-4">
+      <div className="w-full px-4 sm:px-6 pt-6 space-y-4">
 
         {/* ── STEP 1: Token & chain ── */}
         {currentStep === "select" && (

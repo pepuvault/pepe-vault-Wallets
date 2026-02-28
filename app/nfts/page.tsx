@@ -216,7 +216,7 @@ export default function NFTsPage() {
         </span>
       </div>
 
-      <div className="max-w-md mx-auto px-4 pt-5">
+      <div className="w-full px-4 sm:px-6 pt-5">
         {loading ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <Loader className="w-8 h-8 animate-spin" style={{ color: "#00ff88" }} />

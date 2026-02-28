@@ -77,7 +77,7 @@ export default function ReceivePage() {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-5 pt-6 flex flex-col items-center gap-6">
+      <div className="w-full px-4 sm:px-6 pt-6 flex flex-col items-center gap-6">
 
         {/* ── Network pill ── */}
         <div

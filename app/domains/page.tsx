@@ -285,7 +285,7 @@ export default function DomainsPage() {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 pt-5 space-y-4">
+      <div className="w-full px-4 sm:px-6 pt-5 space-y-4">
           {/* ── User's existing domain ── */}
           {loadingUserDomain ? (
             <div className="flex items-center justify-center py-8 gap-2">

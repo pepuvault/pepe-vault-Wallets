@@ -37,9 +37,9 @@ export default function RootLayout({
 }) {
   return (
       <html lang="en" suppressHydrationWarning className="h-full">
-      <body className={`${geist.className} bg-black text-white h-full w-full min-h-[100dvh] flex flex-col items-center md:py-8 md:min-h-screen md:justify-center`}>
+      <body className={`${geist.className} bg-black text-white h-full w-full min-h-[100dvh]`}>
         <AppProviders>
-          <div className="w-full min-h-[100dvh] flex flex-col md:max-w-[480px] md:min-h-[700px] md:rounded-2xl md:overflow-hidden md:shadow-2xl md:border md:border-white/10 md:relative">
+          <div className="w-full min-h-[100dvh] flex flex-col">
             {children}
           </div>
         </AppProviders>

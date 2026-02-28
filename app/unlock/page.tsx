@@ -42,7 +42,7 @@ export default function UnlockPage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full px-4">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold gradient-text">Unlock Wallet</h1>
           <p className="text-gray-400 mt-2">Enter your password to continue</p>

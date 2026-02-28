@@ -247,7 +247,7 @@ export default function ConnectPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
+      <div className="w-full px-4">
         {/* Card */}
         <div className="glass-card rounded-2xl border border-white/20">
           {/* Header */}

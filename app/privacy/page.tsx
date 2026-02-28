@@ -3,7 +3,7 @@
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
+      <div className="w-full px-4 sm:px-6">
         <div className="glass-card p-8 md:p-12 space-y-6">
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-bold gradient-text mb-4">Privacy Policy</h1>

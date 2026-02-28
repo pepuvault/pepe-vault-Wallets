@@ -220,7 +220,7 @@ export default function TokensPage() {
         </button>
       </div>
 
-      <div className="max-w-md mx-auto px-4 pt-5 space-y-4">
+      <div className="w-full px-4 sm:px-6 pt-5 space-y-4">
 
         {/* ── Network toggle ── */}
         <div

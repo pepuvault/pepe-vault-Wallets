@@ -1327,7 +1327,7 @@ export default function TradePage() {
         </button>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-5 space-y-3">
+      <div className="w-full px-4 sm:px-6 pt-5 space-y-3">
 
         {/* ── Slippage panel ── */}
         {showSlippageSettings && (

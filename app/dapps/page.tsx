@@ -52,7 +52,7 @@ export default function DAppsPage() {
     <div className="min-h-screen bg-black text-white pb-24">
       {/* Header */}
       <div className="glass-card rounded-none p-6 border-b border-white/10">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <div className="w-full flex items-center justify-between px-4 sm:px-6">
           <div>
             <h1 className="text-2xl font-bold gradient-text">Connected Apps</h1>
             <p className="text-sm text-gray-400">Manage your wallet connections</p>
@@ -68,7 +68,7 @@ export default function DAppsPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 mt-8 space-y-8">
+      <div className="w-full px-4 sm:px-6 mt-8 space-y-8">
         {/* Native PEPU DApps Section */}
         <div>
           <div className="flex items-center gap-2 mb-4">

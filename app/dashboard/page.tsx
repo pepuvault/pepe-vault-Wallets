@@ -475,7 +475,7 @@ export default function DashboardPage() {
       <RpcConnectionNotification chainId={chainId} />
 
       {/* ── TOP BAR ── */}
-      <div className="flex items-center justify-between px-4 pt-5 pb-3">
+      <div className="flex items-center justify-between px-4 sm:px-6 pt-5 pb-3">
         {/* Network selector */}
         <div className="relative">
           <button
