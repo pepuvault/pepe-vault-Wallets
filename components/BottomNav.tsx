@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Wallet, Send, Globe, Settings, Hash, LayoutGrid } from "lucide-react"
+import { Wallet, Send, Settings, Hash, Coins, Gift } from "lucide-react"
 import { useState, useEffect } from "react"
 
 interface BottomNavProps {
@@ -24,13 +24,10 @@ export default function BottomNav({ active }: BottomNavProps) {
 
   const tabs = [
     { id: "dashboard", label: "Wallet",   href: "/dashboard", icon: Wallet },
-    ...(chainId === 97741
-      ? [{ id: "domains", label: "Domains",  href: "/domains",   icon: Hash }]
-      : []),
-    ...(chainId === 97741
-      ? [{ id: "browser", label: "Browser",  href: "/browser",   icon: Globe }]
-      : []),
+    ...(chainId === 97741 ? [{ id: "domains", label: "Domains", href: "/domains", icon: Hash }] : []),
     { id: "send",      label: "Send",     href: "/send",      icon: Send },
+    { id: "tokens",    label: "Tokens",   href: "/tokens",    icon: Coins },
+    { id: "rewards",   label: "Rewards",  href: "/rewards",   icon: Gift },
     { id: "settings",  label: "Settings", href: "/settings",  icon: Settings },
   ]
 
@@ -44,14 +41,14 @@ export default function BottomNav({ active }: BottomNavProps) {
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
-      <div className="max-w-lg mx-auto flex items-center justify-around px-2 py-2">
+      <div className="max-w-2xl mx-auto flex items-center justify-between px-3 py-2 gap-1">
         {tabs.map(({ id, label, href, icon: Icon }) => {
           const isActive = currentPage === id
           return (
             <Link
               key={id}
               href={href}
-              className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all relative min-w-[52px]"
+              className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl transition-all relative flex-1 min-w-0 max-w-[72px]"
               style={{
                 color: isActive ? "#00ff88" : "#6b7280",
               }}

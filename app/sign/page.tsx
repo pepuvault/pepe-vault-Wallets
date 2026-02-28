@@ -631,7 +631,7 @@ export default function SignPage() {
           <div className="bg-red-500/10 border-2 border-red-500/30 rounded-xl p-4 flex items-start gap-3 animate-pulse">
             <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-red-400 font-bold mb-1">⚠️ High Risk Transaction</p>
+              <p className="text-red-400 font-bold mb-1 flex items-center gap-1.5">High Risk Transaction</p>
               <p className="text-red-300 text-sm">Please verify all details carefully before approving.</p>
             </div>
           </div>
@@ -785,7 +785,7 @@ export default function SignPage() {
                         <div className="flex justify-between items-center">
                           <span className="text-gray-400 text-sm">Amount</span>
                           <span className={`font-bold text-lg ${txAnalysis.amount === "Unlimited" ? "text-yellow-400" : "text-white"}`}>
-                            {txAnalysis.amount === "Unlimited" ? "⚠️ Unlimited" : `${txAnalysis.amount} ${txAnalysis.tokenInfo.symbol}`}
+                            {txAnalysis.amount === "Unlimited" ? "Unlimited" : `${txAnalysis.amount} ${txAnalysis.tokenInfo.symbol}`}
                           </span>
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-white/10">

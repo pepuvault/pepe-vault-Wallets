@@ -298,7 +298,7 @@ export default function RewardsPage() {
         )}
       </div>
 
-      <BottomNav active="dashboard" />
+      <BottomNav active="rewards" />
     </div>
   )
 }

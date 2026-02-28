@@ -1228,9 +1228,9 @@ export default function TradePage() {
     title: string; searchVal: string; onSearch: (v: string) => void; onClose: () => void
     tokenList: Token[]; onSelect: (t: Token) => void; isFrom: boolean
   }) => (
-    <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ background: "rgba(0,0,0,0.7)" }} onClick={onClose}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={onClose}>
       <div
-        className="w-full max-w-lg flex flex-col rounded-t-3xl"
+        className="w-full max-w-lg flex flex-col rounded-3xl animate-modal-center"
         style={{ background: "#181b29", border: "1px solid rgba(255,255,255,0.1)", maxHeight: "85vh" }}
         onClick={e => e.stopPropagation()}
       >

@@ -39,6 +39,8 @@ import {
   MoreHorizontal,
   Loader2,
   X,
+  Wallet,
+  Image,
 } from "lucide-react"
 import Link from "next/link"
 import BottomNav from "@/components/BottomNav"
@@ -658,15 +660,14 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── ACTION BUTTONS ── */}
+      {/* ── ACTION BUTTONS (no nav-bar items: Send, Tokens, Rewards, Settings) ── */}
       <div className="flex items-center justify-around px-6 pb-6">
-        <ActionBtn icon={<Send className="w-5 h-5" />} label="Send" href="/send" />
         <ActionBtn icon={<Download className="w-5 h-5" />} label="Receive" href="/receive" />
         {chainId === 97741 && (
-          <ActionBtn icon={<ArrowLeftRight className="w-5 h-5" />} label="Swap" href="/trade" />
-        )}
-        {chainId === 97741 && (
-          <ActionBtn icon={<Network className="w-5 h-5" />} label="Bridge" href="/bridge" />
+          <>
+            <ActionBtn icon={<ArrowLeftRight className="w-5 h-5" />} label="Swap" href="/trade" />
+            <ActionBtn icon={<Network className="w-5 h-5" />} label="History" href="/transactions" />
+          </>
         )}
         {chainId === 1 && (
           <ActionBtn
@@ -715,7 +716,7 @@ export default function DashboardPage() {
             ) : balances.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
                 <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                  <span className="text-3xl">👛</span>
+                  <Wallet className="w-8 h-8" style={{ color: "#6b7280" }} />
                 </div>
                 <p className="text-gray-400 text-sm">No tokens found</p>
                 <p className="text-gray-600 text-xs mt-1">Your balances will appear here</p>
@@ -756,7 +757,7 @@ export default function DashboardPage() {
         {activeTab === "nfts" && (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
             <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-              <span className="text-3xl">🖼️</span>
+              <Image className="w-8 h-8" style={{ color: "#6b7280" }} />
             </div>
             <p className="text-gray-400 text-sm">NFT Gallery</p>
             <Link
@@ -764,7 +765,7 @@ export default function DashboardPage() {
               className="mt-3 text-xs font-semibold px-4 py-2 rounded-full transition-colors"
               style={{ background: "rgba(0,255,136,0.12)", color: "#00ff88" }}
             >
-              View NFTs →
+              View NFTs
             </Link>
           </div>
         )}
@@ -772,9 +773,9 @@ export default function DashboardPage() {
 
       {/* ── ADD CUSTOM TOKEN MODAL (ETH) ── */}
       {showAddToken && chainId === 1 && (
-        <div className="fixed inset-0 z-[999] flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
           <div
-            className="w-full max-w-lg rounded-t-3xl p-6 space-y-4"
+            className="w-full max-w-lg rounded-3xl p-6 space-y-4 animate-modal-center"
             style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.1)" }}
           >
             <div className="flex items-center justify-between">
@@ -848,9 +849,9 @@ export default function DashboardPage() {
 
       {/* ── ADD WALLET MODAL ── */}
       {showAddWallet && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
           <div
-            className="w-full max-w-lg rounded-t-3xl p-6 space-y-4 max-h-[85vh] overflow-y-auto"
+            className="w-full max-w-lg rounded-3xl p-6 space-y-4 max-h-[85vh] overflow-y-auto animate-modal-center"
             style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.1)" }}
           >
             <div className="flex items-center justify-between mb-2">

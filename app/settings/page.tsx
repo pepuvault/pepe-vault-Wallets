@@ -132,12 +132,12 @@ function Modal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[999] flex items-end justify-center"
+      className="fixed inset-0 z-[999] flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.65)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-t-3xl p-6 space-y-5 max-h-[88vh] overflow-y-auto animate-slide-up"
+        className="w-full max-w-lg rounded-3xl p-6 space-y-5 max-h-[88vh] overflow-y-auto animate-modal-center"
         style={{ background: "#181b29", border: "1px solid rgba(255,255,255,0.1)" }}
         onClick={(e) => e.stopPropagation()}
       >

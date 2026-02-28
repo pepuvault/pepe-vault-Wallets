@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Loader, ExternalLink } from "lucide-react"
+import { X, Loader, ExternalLink, CheckCircle, XCircle } from "lucide-react"
 import { ethers } from "ethers"
 import { getProvider } from "@/lib/rpc"
 import { fetchGeckoTerminalData, getPepuTokenPriceFromQuoter } from "@/lib/gecko"
@@ -184,8 +184,8 @@ export default function TokenDetailsModal({
                     isBonded ? "bg-green-500/10 border border-green-500/20" : "bg-red-500/10 border border-red-500/20"
                   }`}
                 >
-                  <p className={`font-semibold ${isBonded ? "text-green-400" : "text-red-400"}`}>
-                    {isBonded ? "✅ BONDED" : "❌ NOT BONDED"}
+                  <p className={`font-semibold flex items-center gap-2 ${isBonded ? "text-green-400" : "text-red-400"}`}>
+                    {isBonded ? <><CheckCircle className="w-4 h-4" /> BONDED</> : <><XCircle className="w-4 h-4" /> NOT BONDED</>}
                   </p>
                   {!isBonded && (
                     <p className="text-xs text-gray-400 mt-1">No USD price available</p>

@@ -142,16 +142,16 @@ export default function SendPage() {
             } else { setFeeWarning(""); setFeeCalculated(true) }
           } catch (feeError: any) {
             const errorMsg = feeError.message || "Failed to check fee balance"
-            if (errorMsg.includes("RPC") || errorMsg.includes("network")) setFeeWarning("⚠️ Network error: Unable to verify balance.")
-            else setFeeWarning(`⚠️ ${errorMsg}`)
+            if (errorMsg.includes("RPC") || errorMsg.includes("network")) setFeeWarning("Network error: Unable to verify balance.")
+              else setFeeWarning(errorMsg)
             setFeeCalculated(false)
           }
         }
       } catch (error: any) {
         if (isMounted) {
           const errorMsg = error.message || "Failed to calculate fee"
-          if (errorMsg.includes("RPC") || errorMsg.includes("network") || errorMsg.includes("fetch")) setFeeWarning("⚠️ Network error: Unable to calculate fee.")
-          else setFeeWarning(`⚠️ ${errorMsg}`)
+          if (errorMsg.includes("RPC") || errorMsg.includes("network") || errorMsg.includes("fetch")) setFeeWarning("Network error: Unable to calculate fee.")
+          else setFeeWarning(errorMsg)
           setFeeCalculated(false); setTransactionFee("0")
           retryTimeout = setTimeout(() => { if (isMounted) calculateFee(true) }, 5000)
         }

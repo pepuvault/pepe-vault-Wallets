@@ -329,12 +329,12 @@ export default function TokensPage() {
       {/* ── Add custom token modal ── */}
       {showAddToken && chainId === 1 && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.7)" }}
           onClick={() => { setShowAddToken(false); setCustomAddress(""); setCustomError("") }}
         >
           <div
-            className="w-full max-w-lg rounded-t-3xl p-6 space-y-5"
+            className="w-full max-w-lg rounded-3xl p-6 space-y-5 animate-modal-center"
             style={{ background: "#1a1d2e", border: "1px solid rgba(255,255,255,0.1)" }}
             onClick={e => e.stopPropagation()}
           >
